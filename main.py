@@ -1,5 +1,6 @@
 from job_analysis import run_job_search, run_chart_analysis
 
+
 if __name__ == "__main__":
     while True:
         print("\n==================================")
