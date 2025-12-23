@@ -1,0 +1,593 @@
+/* static/style.css */
+:root {
+    --bg: #0f0f0f;
+    --card-bg: #161616;
+    --text-main: #f5f5f5;
+    --text-muted: #9a9a9a;
+    --gold: #c6a96b;
+    --border: #222;
+    --accent-104: #F29048;
+    --accent-1111: #4DA6FF;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    line-height: 1.6;
+}
+
+/* Header */
+header {
+    padding: 32px 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    font-family: 'Playfair Display', serif;
+    letter-spacing: 2px;
+    font-size: 24px;
+}
+
+nav a {
+    margin-left: 32px;
+    text-decoration: none;
+    color: var(--text-main);
+    font-size: 14px;
+    opacity: .8;
+    transition: color 0.3s;
+}
+
+nav a:hover {
+    color: var(--gold);
+    opacity: 1;
+}
+
+nav a.active {
+    color: var(--gold);
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 4px;
+    opacity: 1;
+}
+
+/* Hero Section */
+.hero {
+    padding: 80px 80px 40px 80px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.hero h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 56px;
+    margin-bottom: 16px;
+    line-height: 1.1;
+}
+
+.hero p {
+    color: var(--text-muted);
+    font-size: 16px;
+    max-width: 600px;
+}
+
+/* Search Box */
+.search-container {
+    margin-top: 40px;
+    display: flex;
+    gap: 16px;
+    max-width: 900px;
+    align-items: stretch;
+}
+
+.input-group {
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    height: 100%;
+    padding: 18px 24px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.3s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--gold);
+}
+
+.btn-search {
+    padding: 0 40px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-search:hover {
+    background: var(--gold);
+    color: #000;
+}
+
+.btn-search:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Results Area */
+#results-area {
+    display: none;
+    opacity: 0;
+    transition: opacity 1s ease;
+}
+
+#results-area.visible {
+    display: block;
+    opacity: 1;
+}
+
+.section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* Actions Bar (New) */
+.actions-bar {
+    padding: 0 80px 20px 80px;
+    display: flex;
+    gap: 16px;
+    justify-content: flex-end;
+}
+
+.btn-action {
+    padding: 10px 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.btn-action:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding: 0 80px 60px 80px;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px; /* 建議加上圓角，視覺較柔和 */
+    
+    /* 關鍵 flex 設定 */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* 確保內容上下撐開 */
+    height: 140px; /* 固定高度，與其他卡片強制一致 */
+    box-sizing: border-box;
+}
+
+.stat-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    color: var(--text-main);
+}
+
+.stat-trend {
+    font-size: 13px;
+    color: var(--gold);
+}
+
+.platform-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 4px;
+}
+
+/* 平台列表容器 */
+.platform-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* 上下行距 */
+    margin-top: 20px;
+}
+
+/* 每一行的排版 (左右對齊關鍵) */
+.platform-row {
+    display: flex;
+    justify-content: space-between; /* 讓名稱靠左，數字靠右 */
+    align-items: center; /* 垂直置中 */
+}
+
+/* 平台名稱樣式 */
+.platform-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+/* 數字樣式 */
+.platform-count {
+    font-size: 1.8rem; /* 數字大一點 */
+    font-weight: bold;
+    color: var(--text-main); /* 使用變數確保顏色一致 */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 中間的分隔線 */
+.divider {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.1); /* 很淡的灰線 */
+    width: 100%;
+}
+
+/* Charts */
+.chart-section {
+    padding: 0 80px 60px 80px;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+
+.chart-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+}
+
+.chart-container img {
+    width: 100%;
+    height: auto;
+}
+
+/* Jobs Grid */
+.jobs-section {
+    padding: 0 80px 80px 80px;
+}
+
+.jobs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+}
+
+.job-card {
+    background: var(--card-bg);
+    padding: 32px;
+    border: 1px solid var(--border);
+    transition: transform .3s, border-color .3s;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+}
+
+.job-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--gold);
+}
+
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.platform-tag {
+    font-size: 11px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.tag-104 {
+    color: var(--accent-104);
+    border-color: rgba(242, 144, 72, 0.3);
+}
+
+.tag-1111 {
+    color: var(--accent-1111);
+    border-color: rgba(77, 166, 255, 0.3);
+}
+
+.job-date {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.job-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--text-main);
+    line-height: 1.3;
+}
+
+.job-company {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    font-weight: 300;
+}
+
+.job-meta {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid #222;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--gold);
+}
+
+/* Loader */
+.loader {
+    display: none;
+    text-align: center;
+    margin-top: 20px;
+    color: var(--gold);
+    font-family: 'Playfair Display';
+    letter-spacing: 2px;
+}
+
+.loader.active {
+    display: block;
+}
+
+/* RWD */
+@media (max-width: 1024px) {
+
+    .jobs-grid,
+    .stats-grid,
+    .chart-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+
+    header,
+    .hero,
+    .stats-grid,
+    .chart-section,
+    .jobs-section {
+        padding: 40px;
+    }
+
+    .search-container {
+        flex-direction: column;
+    }
+
+    .actions-bar {
+        justify-content: center;
+    }
+}
+
+/* static/style.css - 請加在檔案最後面或適當位置 */
+
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    align-items: center;
+    font-size: 14px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 將排序推到最右邊 */
+.ml-auto {
+    margin-left: auto;
+}
+
+/* 下拉選單樣式 */
+select {
+    background: #0f0f0f;
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--gold);
+}
+
+/* Checkbox 樣式微調 */
+.checkbox-group {
+    display: flex;
+    gap: 15px;
+}
+
+.checkbox-group label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+input[type="checkbox"] {
+    accent-color: var(--gold);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* RWD: 手機版時篩選列變成垂直排列 */
+@media (max-width: 768px) {
+    .filter-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ml-auto {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    select {
+        width: 100%;
+    }
+}
+
+/* =========================================
+   修正版：平台資料來源卡片樣式 (完整覆蓋)
+   ========================================= */
+
+/* 1. 卡片外框強制設定 */
+.stat-card {
+    background: var(--card-bg); /* 或您原本的背景色 */
+    padding: 24px;
+    border: 1px solid var(--border); /* 或您原本的邊框色 */
+    border-radius: 8px;
+    
+    /* Flex 佈局：由上而下排列 (標題 -> 內容 -> 註解) */
+    display: flex;
+    flex-direction: column;
+    height: 160px; /* 設定固定高度，確保跟旁邊的卡片一樣高 */
+    box-sizing: border-box;
+}
+
+/* 2. 補上遺漏的標題樣式 */
+.card-title {
+    font-size: 14px;
+    color: #aaa;      /* 灰色標題 */
+    margin-bottom: 5px;
+}
+
+/* 3. 中間內容區塊：自動填滿剩餘高度 */
+.flex-grow-content {
+    flex: 1;                /* 關鍵：佔據所有剩餘空間 */
+    display: flex;          /* 內部左右排列 */
+    align-items: center;    /* 垂直置中 */
+    justify-content: center;
+    width: 100%;
+}
+
+/* 4. 左右兩邊的數據盒子 */
+.platform-box {
+    flex: 1;                /* 左右平分 */
+    display: flex;
+    flex-direction: column; /* 數字在文字上面 */
+    align-items: center;
+    justify-content: center;
+}
+
+/* 5. 數字樣式 */
+.p-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;        /* 大數字 */
+    color: #fff;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* 6. 平台名稱標籤 */
+.p-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.8;
+    margin-top: 2px;
+}
+
+/* 7. 中間分隔線 */
+.vertical-line {
+    width: 1px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.2);
+    margin: 0 15px;
+}
+
+/* 顏色 */
+.color-104 { color: #F29048; }
+.color-1111 { color: #4DA6FF; }
+
+/* 8. 底部註解 */
+.card-note {
+    font-size: 12px;
+    color: #555;
+    margin-top: 0; 
+}
+
+/* --- 讀條動畫 (Dot Animation) --- */
+.dot-animation::after {
+    content: '';
+    animation: dots-cycle 1.5s infinite steps(4);
+    display: inline-block;
+    width: 1.5em; /* 預留寬度，防止文字跳動 */
+    text-align: left;
+}
+
+@keyframes dots-cycle {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+}

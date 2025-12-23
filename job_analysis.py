@@ -6,6 +6,7 @@ import sqlite3
 import matplotlib.pyplot as plt
 import re
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from job_spider_104 import Job104Spider
 from job_spider_1111 import Job1111Spider
@@ -196,48 +197,122 @@ def export_high_salary(df, threshold=50000):
     else:
         print("沒找到符合條件的高薪職缺(可能都是面議)")
 
-#程式語言職缺數統計圖
-def run_chart_analysis():
+def fetch_stats_by_keyword(keyword):
+    """
+    [工作函式] 負責查詢單一關鍵字在兩個平台的數據
+    """
     spider104 = Job104Spider()
     spider1111 = Job1111Spider()
     
-    languages = ['Python', 'Java', 'JavaScript', 'C#', 'PHP', 'Swift', 'Go']
+    try:
+        # 只抓 1 筆是為了快速取得 Total Count
+        count104, _ = spider104.search(keyword, max_num=1)
+        count1111, _ = spider1111.search(keyword, max_num=1)
+        return {"Keyword": keyword, "104": count104, "1111": count1111}
+    except Exception as e:
+        print(f"查詢 {keyword} 時發生錯誤: {e}")
+        return {"Keyword": keyword, "104": 0, "1111": 0}
+
+def run_chart_analysis():
+    targets = [] # 存放要搜尋的目標清單
+    chart_title = ""
+    x_label = ""
+
+    print("\n" + "="*30)
+    print("請選擇分析模式：")
+    print("1. 程式語言統計 (預設清單)")
+    print("2. 自訂職缺分析 (自行輸入)")
+    mode = input("請輸入選項 (1 或 2): ")
+
+    if mode == '2':
+        # --- 模式二：自訂輸入 ---
+        print("\n>> 請依序輸入要比較的關鍵字 (例如: 行政, 會計, 業務)")
+        print(">> 輸入完畢請直接按 [Enter] 鍵結束輸入")
+        
+        while True:
+            user_input = input(f"請輸入第 {len(targets)+1} 個關鍵字: ").strip()
+            if user_input == "":
+                break
+            if user_input in targets:
+                print("這個關鍵字已經輸入過了")
+                continue
+            targets.append(user_input)
+            
+        if not targets:
+            print("未輸入任何關鍵字，回到主選單。")
+            return
+            
+        chart_title = "自訂職缺熱度比較"
+        x_label = "職缺關鍵字"
+        
+    else:
+        # --- 模式一：預設程式語言 ---
+        # 預設為模式 1 (包含輸入錯誤時)
+        targets = ['Python', 'Java', 'JavaScript', 'C#', 'PHP', 'Swift', 'Go', 'C++', 'Ruby']
+        chart_title = "程式語言職缺數比較"
+        x_label = "程式語言"
+
+    # --- 開始執行多執行緒統計 (共用邏輯) ---
     results = []
 
-    print("\n開始統計各語言職缺數...")
-    print(f"{'語言':<12} | {'104':<8} | {'1111':<8}")
-    print("-" * 35)
-    
-    for lang in languages:
-        c104, _ = spider104.search(lang, max_num=1)
-        c1111, _ = spider1111.search(lang, max_num=1)
-        print(f"{lang:<12} | {c104:<8} | {c1111:<8}")
-        results.append({"Language": lang, "104": c104, "1111": c1111, "Total": c104 + c1111})
-        time.sleep(0.5)
+    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] 開始分析下列項目: {targets}")
+    print(f"{'關鍵字':<12} | {'104':<8} | {'1111':<8} | {'狀態'}")
+    print("-" * 50)
+
+    # 開啟執行緒池
+    with ThreadPoolExecutor(max_workers=min(len(targets), 10)) as executor:
+        # 送出任務
+        future_to_kw = {executor.submit(fetch_stats_by_keyword, kw): kw for kw in targets}
         
+        # 接收結果
+        for future in as_completed(future_to_kw):
+            data = future.result()
+            kw = data['Keyword']
+            
+            # 存入結果
+            total = data['104'] + data['1111']
+            data['Total'] = total
+            results.append(data)
+            
+            # 印出進度
+            # 處理中文字串對齊問題(簡單處理)
+            display_kw = kw if len(kw) < 8 else kw[:6]+".."
+            print(f"{display_kw:<12} | {data['104']:<8} | {data['1111']:<8} | 完成")
+
+    # --- 畫圖 ---
+    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] 統計完成，開始製圖...")
+    
     df = pd.DataFrame(results).sort_values(by="Total", ascending=False)
+    
     if df['Total'].sum() > 0:
         plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
         plt.rcParams['axes.unicode_minus'] = False
         
-        ax = df.plot(x="Language", y=["104", "1111"], kind="bar", 
-                     figsize=(10, 6), color=['#F29048', '#4DA6FF'], width=0.8)
+        # 根據數量動態調整圖表大小，避免字擠在一起
+        fig_width = max(10, len(targets) * 1.2)
         
-        plt.title(f"{datetime.now().strftime('%Y-%m-%d')} 程式語言職缺數比較")
-        plt.xlabel("程式語言")
-        plt.ylabel("職缺數")
-        plt.xticks(rotation=0)
+        ax = df.plot(x="Keyword", y=["104", "1111"], kind="bar", 
+                     figsize=(fig_width, 6), color=['#F29048', '#4DA6FF'], width=0.8)
+        
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        plt.title(f"{today_str} {chart_title}", fontsize=16, fontweight='bold')
+        plt.xlabel(x_label, fontsize=12)
+        plt.ylabel("職缺數", fontsize=12)
+        plt.xticks(rotation=0) # 轉正文字
         plt.grid(axis='y', linestyle='--', alpha=0.3)
+        plt.legend(title="平台")
         
+        # 在柱狀圖上標示數字
         for container in ax.containers:
-            ax.bar_label(container, padding=3)
+            ax.bar_label(container, padding=3, fmt='%d')
             
         plt.tight_layout()
-        plt.savefig("job_statistics.png")
-        print(f"\n圖表已生成: job_statistics.png")
+        filename = f"stats_chart_{today_str}.png"
+        plt.savefig(filename)
+        print(f"圖表已生成: {filename}")
         plt.show()
     else:
-        print("無數據")
+        print("沒有抓到任何數據。")
 
 #讀條動畫
 def loading(msg, task_func):

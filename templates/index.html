@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>職缺情資中心 — 市場分析系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <header>
+    <h1>CAREER <span style="font-size:14px; color:var(--gold); letter-spacing:1px; margin-left:5px;">INTELLIGENCE</span></h1>
+  <nav>
+      <a href="/" class="active">市場分析</a>
+      <a href="/stats">職缺趨勢比較</a>
+  </nav>
+  </header>
+
+  <section class="hero">
+    <h2>市場洞察 &<br>職缺機會發掘</h2>
+    <p>深度掃描 104 與 1111 人力銀行資料庫，即時解析薪資結構與職缺分佈趨勢。</p>
+    
+    <div class="search-container">
+      <div class="input-group" style="flex: 2;">
+        <input type="text" id="keyword" class="search-input" placeholder="請輸入職缺關鍵字 (例如: Python 工程師)" value="Python">
+      </div>
+      <div class="input-group" style="flex: 1;">
+        <input type="number" id="max_num" class="search-input" placeholder="各平台抓取筆數" value="20" min="1" max="100">
+      </div>
+      <button id="btn-search" class="btn-search" onclick="startAnalysis()">開始分析職缺</button>
+    </div>
+    <div id="loader" class="loader">
+        正在搜尋各平台資料<span class="dot-animation"></span>
+    </div>
+  </section>
+
+  <div id="results-area">
+    
+    <div class="actions-bar">
+        <button class="btn-action" onclick="exportCSV()">匯出 CSV 報表</button>
+        <button class="btn-action" onclick="saveToDB()">寫入資料庫 (SQLite)</button>
+    </div>
+
+    <section class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-label">總職缺數</span>
+            <span class="stat-value" id="stat-total">0</span>
+            <span class="stat-trend">已分析職缺</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">平均月薪</span>
+            <span class="stat-value" id="stat-salary">0</span>
+            <span class="stat-trend">新台幣 / 月</span>
+        </div>
+        <div class="stat-card">
+            <div class="card-title">平台資料來源</div>
+            
+            <div class="platform-dual-container flex-grow-content">
+                <div class="platform-box">
+                    <span class="p-value" id="count_104">0</span>
+                    <span class="p-label color-104">104 人力銀行</span>
+                </div>
+
+                <div class="vertical-line"></div>
+
+                <div class="platform-box">
+                    <span class="p-value" id="count_1111">0</span>
+                    <span class="p-label color-1111">1111 人力銀行</span>
+                </div>
+            </div>
+
+            <!-- <div class="card-note">即時爬蟲數據</div> -->
+        </div>
+    </section>
+
+    <section class="chart-section">
+        <div>
+            <h3 class="section-title">薪資分佈區間</h3>
+            <div class="chart-container" id="chart-salary">
+                <span style="color:#444">等待分析...</span>
+            </div>
+        </div>
+        <div>
+            <h3 class="section-title">職缺地區分佈</h3>
+            <div class="chart-container" id="chart-location">
+                <span style="color:#444">等待分析...</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="jobs-section">
+        <h3 class="section-title">精選職缺列表</h3>
+        
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>地區:</label>
+                <select id="filter-city" onchange="applyFilters()">
+                    <option value="all">所有縣市</option>
+                    </select>
+            </div>
+
+            <div class="filter-group">
+                <label>平台:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="cb-104" value="104" checked onchange="applyFilters()"> 104</label>
+                    <label><input type="checkbox" id="cb-1111" value="1111" checked onchange="applyFilters()"> 1111</label>
+                </div>
+            </div>
+
+            <div class="filter-group ml-auto"> <label>排序:</label>
+                <select id="sort-by" onchange="applyFilters()">
+                    <option value="default">預設排序</option>
+                    <option value="salary_desc">薪資 (高 → 低)</option>
+                    <option value="salary_asc">薪資 (低 → 高)</option>
+                    <option value="date_desc">更新日期 (新 → 舊)</option>
+                    <option value="company">公司名稱 (A → Z)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="jobs-grid" id="jobs-container"></div>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
