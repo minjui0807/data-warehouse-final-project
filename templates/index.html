@@ -38,8 +38,8 @@
   <div id="results-area">
     
     <div class="actions-bar">
-        <button class="btn-action" onclick="exportCSV()">匯出 CSV 報表</button>
-        <button class="btn-action" onclick="saveToDB()">寫入資料庫 (SQLite)</button>
+        <button class="btn-action" onclick="exportAllCSV()">匯出原始資料 (CSV)</button>
+        <button class="btn-action" onclick="saveAllToDB()">匯出原始資料 (SQLite)</button>
     </div>
 
     <section class="stats-grid">
@@ -69,8 +69,6 @@
                     <span class="p-label color-1111">1111 人力銀行</span>
                 </div>
             </div>
-
-            <!-- <div class="card-note">即時爬蟲數據</div> -->
         </div>
     </section>
 
@@ -106,6 +104,22 @@
                     <label><input type="checkbox" id="cb-104" value="104" checked onchange="applyFilters()"> 104</label>
                     <label><input type="checkbox" id="cb-1111" value="1111" checked onchange="applyFilters()"> 1111</label>
                 </div>
+            </div>
+
+            <div class="filter-group">
+                <label>月薪大於:</label>
+                <input type="number" id="min-salary-input" placeholder="輸入數字即篩選" 
+                       oninput="applyFilters()" 
+                       style="width: 120px; background: #222; border: 1px solid #444; color: white; padding: 4px 8px; border-radius: 4px;">
+            </div>
+
+            <div class="filter-group">
+                 <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">
+                    匯出成CSV檔案
+                 </button>
+                 <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                    存入SQLite
+                 </button>
             </div>
 
             <div class="filter-group ml-auto"> <label>排序:</label>

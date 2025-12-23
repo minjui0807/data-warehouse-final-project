@@ -55,6 +55,33 @@ def parse_salary_for_web(salary_str):
     if avg_salary > 300000: return avg_salary / 13
     return avg_salary
 
+def filter_dataframe_by_salary(df, min_salary):
+    """
+    共用函式：依據最低薪資篩選 DataFrame
+    """
+    if df.empty or min_salary is None:
+        return df
+    
+    try:
+        min_salary = int(min_salary)
+        if min_salary <= 0:
+            return df
+
+        # 1. 暫時計算平均薪資 (使用您原本定義好的 parse_salary_for_web)
+        # 注意：這裡會產生一個暫存欄位 '_temp_avg_salary'
+        df['_temp_avg_salary'] = df['salary'].apply(parse_salary_for_web)
+        
+        # 2. 進行篩選 (保留 >= min_salary 的資料)
+        filtered_df = df[df['_temp_avg_salary'] >= min_salary].copy()
+        
+        # 3. 刪除暫存欄位，保持資料乾淨
+        del filtered_df['_temp_avg_salary']
+        
+        return filtered_df
+    except Exception as e:
+        print(f"Filtering Error: {e}")
+        return df # 發生錯誤時回傳原資料，避免崩潰
+
 def get_city(addr):
     """從地址中提取城市名稱"""
     if isinstance(addr, str) and len(addr) >= 3:
@@ -196,6 +223,34 @@ def compare_jobs():
         })
     else:
         return jsonify({'status': 'error', 'message': '無法取得數據'})
+    
+
+@app.route('/api/filter_jobs', methods=['POST'])
+def filter_jobs():
+    try:
+        data = request.json
+        jobs = data.get('jobs', [])
+        min_salary = data.get('min_salary', 0)
+        
+        if not jobs:
+            return jsonify({'status': 'error', 'message': '沒有資料可篩選'})
+
+        df = pd.DataFrame(jobs)
+        
+        # 呼叫共用篩選函式
+        filtered_df = filter_dataframe_by_salary(df, min_salary)
+        
+        # 轉回 List[Dict] 格式回傳給前端
+        filtered_jobs = filtered_df.to_dict('records')
+        
+        return jsonify({
+            'status': 'success', 
+            'jobs': filtered_jobs,
+            'count': len(filtered_jobs),
+            'message': f'篩選完成，共找到 {len(filtered_jobs)} 筆月薪高於 {min_salary} 的職缺'
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 # --- 6. API 路由: 傳統詳細搜尋 (舊功能保留) ---
 
@@ -321,34 +376,44 @@ def search_jobs():
         'count_1111': len(df[df['platform'] == '1111'])
     }
 
+    for job in jobs_data:
+        job['salary_sort'] = parse_salary_for_web(job.get('salary', ''))
+
     return jsonify({'status': 'success', 'jobs': jobs_data, 'charts': charts, 'stats': stats})
 
 # --- 7. 匯出與儲存功能 ---
 
 @app.route('/api/save_db', methods=['POST'])
+@app.route('/api/save_db', methods=['POST'])
 def save_db():
     try:
         data = request.json
         jobs = data.get('jobs', [])
-        
+        min_salary = data.get('min_salary') # 取得篩選條件 (如果是 None 代表不篩選)
+
         if not jobs:
             return jsonify({'status': 'error', 'message': '沒有資料可儲存'})
 
         df = pd.DataFrame(jobs)
         
-        # [關鍵修改] 強制重新排列欄位順序 (這會自動過濾掉不在列表中的欄位)
+        # [新增步驟] 如果有傳入 min_salary，先進行篩選
+        if min_salary:
+            df = filter_dataframe_by_salary(df, min_salary)
+            if df.empty:
+                 return jsonify({'status': 'error', 'message': f'沒有薪水高於 {min_salary} 的職缺可儲存'})
+
+        # [既有步驟] 欄位排序
         df = df.reindex(columns=COLUMN_ORDER)
         
-        # 連接資料庫
         conn = sqlite3.connect('job_database.db')
-        
-        # 寫入資料庫
-        # 注意: if_exists='replace' 會刪除舊表重建，這樣欄位順序才會更新
-        # 如果改用 'append'，且舊資料庫欄位順序不同，可能會報錯
         df.to_sql('search_results', conn, if_exists='replace', index=False)
-        
         conn.close()
-        return jsonify({'status': 'success', 'message': f'已成功將 {len(df)} 筆資料寫入 job_database.db'})
+        
+        msg = f'已成功將 {len(df)} 筆資料寫入資料庫'
+        if min_salary:
+            msg += f' (篩選條件: > {min_salary})'
+            
+        return jsonify({'status': 'success', 'message': msg})
     except Exception as e:
         print(f"DB Error: {e}")
         return jsonify({'status': 'error', 'message': str(e)})
@@ -359,21 +424,30 @@ def export_csv():
         data = request.json
         jobs = data.get('jobs', [])
         keyword = data.get('keyword', 'data')
-        
+        min_salary = data.get('min_salary') # 取得篩選條件
+
         if not jobs:
             return jsonify({'status': 'error', 'message': '沒有資料可匯出'})
 
         df = pd.DataFrame(jobs)
         
-        # [關鍵修改] 強制重新排列欄位順序
+        # [新增步驟] 如果有傳入 min_salary，先進行篩選
+        if min_salary:
+            df = filter_dataframe_by_salary(df, min_salary)
+
+        # [既有步驟] 欄位排序
         df = df.reindex(columns=COLUMN_ORDER)
         
         csv_buffer = io.BytesIO()
-        # 轉成 CSV
         df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
         csv_buffer.seek(0)
         
-        filename = f"{keyword}_jobs.csv"
+        # 檔名加上篩選註記
+        filename = f"{keyword}_jobs"
+        if min_salary:
+            filename += f"_over_{min_salary}"
+        filename += ".csv"
+
         return send_file(csv_buffer, mimetype='text/csv', as_attachment=True, download_name=filename)
     except Exception as e:
         print(f"CSV Error: {e}")
