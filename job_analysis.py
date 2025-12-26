@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import concurrent.futures
+import random
 
 from job_spider_104 import Job104Spider
 from job_spider_1111 import Job1111Spider
@@ -14,11 +16,10 @@ from job_spider_1111 import Job1111Spider
 plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
 plt.rcParams['axes.unicode_minus'] = False
 
-#功能1: 整合搜尋(同時查104與1111)
+# 功能1: 整合搜尋(同時查104與1111) - 加速版
 def run_job_search():
     spider104 = Job104Spider()
     spider1111 = Job1111Spider()
-    
     
     global keyword 
     keyword = input("\n請輸入關鍵字(例如 Python): ")
@@ -32,31 +33,51 @@ def run_job_search():
         max_num = 20
 
     print("-" * 30)
-    #防呆
     if max_num <= 0:
         print(">> 筆數設定為 0，略過搜尋，返回主選單。")
         time.sleep(1)
         return [], []
     
-    #執行搜尋
-    _, jobs104 = loading(f"[104] 正在搜尋 {keyword}", lambda: spider104.search(keyword, max_num=max_num))
-    if len(jobs104) >= max_num:
-        print(f"[104] 已搜尋{max_num}筆資料")
-    else:
-        print(f"[104] 資料不足，僅找到: {len(jobs104)}筆")
-    
-    _, jobs1111 = loading(f"[1111] 正在搜尋 {keyword}", lambda: spider1111.search(keyword, max_num=max_num))
-    if len(jobs1111) >= max_num:
-        print(f"[1111] 已搜尋{max_num}筆資料")
-    else:
-        print(f"[1111] 資料不足，僅找到: {len(jobs1111)}筆")
+    # --- [修改] 定義並行任務 ---
+    def search_parallel():
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future104 = executor.submit(spider104.search, keyword, max_num)
+            future1111 = executor.submit(spider1111.search, keyword, max_num)
+            return future104.result(), future1111.result()
 
-    #資料整合
+    # --- [修改] 執行一次 Loading 即可 ---
+    print(f"正在同時搜尋 [104] 與 [1111] 的 {keyword} 職缺...")
+    start_time = time.time()
+    
+    try:
+        (count104, jobs104), (count1111, jobs1111) = loading(f"搜尋進行中", search_parallel)
+    except Exception as e:
+        print(f"搜尋發生錯誤: {e}")
+        return [], []
+
+    end_time = time.time()
+    print(f"\n搜尋完成！總耗時: {end_time - start_time:.2f} 秒")
+
+    # 顯示結果統計
+    if len(jobs104) >= max_num:
+        print(f"[104]  已搜尋 {len(jobs104)} 筆資料 (總數: {count104})")
+    else:
+        print(f"[104]  資料不足，僅找到: {len(jobs104)} 筆 (總數: {count104})")
+    
+    if len(jobs1111) >= max_num:
+        print(f"[1111] 已搜尋 {len(jobs1111)} 筆資料 (總數: {count1111})")
+    else:
+        print(f"[1111] 資料不足，僅找到: {len(jobs1111)} 筆 (總數: {count1111})")
+
+    # 資料整合
     all_jobs = []
     for job in jobs104: all_jobs.append(spider104.search_job_transform(job))
     for job in jobs1111: all_jobs.append(spider1111.search_job_transform(job))
         
     if all_jobs:
+        # 依照薪資排序 (由高到低)
+        all_jobs.sort(key=lambda x: x.get('salary_sort', 0), reverse=True)
+
         df = pd.DataFrame(all_jobs)
         filename = f"combined_jobs_{keyword}.csv"
         df.to_csv(filename, index=False, encoding='utf-8-sig')
@@ -70,7 +91,7 @@ def run_job_search():
         except:
             print("資料庫寫入失敗")
 
-        #進階功能
+        # 進階功能
         print("\n是否要進行進階分析? \n1.繪製薪資分佈圖 \n2.繪製地區佔比圖 \n3.篩選高薪職缺 \n4.全部都做 \nEnter 跳過")
         do_analyze = input("\n請輸入選項: ")
         

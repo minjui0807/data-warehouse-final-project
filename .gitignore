@@ -47,3 +47,5 @@ geckodriver
 *.exe
 
 test*
+
+selenium_job_search.py
