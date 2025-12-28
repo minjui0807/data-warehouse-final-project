@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>職缺情資中心 — 全方位分析系統</title>
+  <title>JOB Miner — 全方位職缺分析系統</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -10,7 +10,9 @@
 <body>
 
   <header>
-    <h1>CAREER <span style="font-size:14px; color:var(--gold); letter-spacing:1px; margin-left:5px;">INTELLIGENCE</span></h1>
+    <h1 class="brand-title style-2">
+        JOB <span class="highlight">Miner</span>
+    </h1>
     <nav>
       <a href="#" class="nav-link active" onclick="switchTab('market')">市場分析</a>
       <a href="#" class="nav-link" onclick="switchTab('trend')">職缺趨勢比較</a>
@@ -27,7 +29,7 @@
             <input type="text" id="keyword" class="search-input" placeholder="請輸入職缺關鍵字 (例如: Python 工程師)" value="Python">
           </div>
           <div class="input-group" style="flex: 1;">
-            <input type="number" id="max_num" class="search-input" placeholder="各平台抓取筆數" value="20" min="1" max="100">
+            <input type="text" id="max_num" class="search-input" placeholder="各平台抓取筆數" value="200">
           </div>
           
           <button id="btn-search" type="button" class="btn-search">開始分析職缺</button>
@@ -41,7 +43,7 @@
       <div id="results-area">
         <div class="actions-bar">
             <button class="btn-action" onclick="exportAllCSV()">匯出原始資料 (CSV)</button>
-            <button class="btn-action" onclick="saveAllToDB()">匯出原始資料 (SQLite)</button>
+            <button class="btn-action" onclick="saveAllToDB()">匯出資料庫 (db檔)</button>
         </div>
 
         <section class="stats-grid">
@@ -103,12 +105,28 @@
                     </div>
                 </div>
                 <div class="filter-group">
-                    <label>月薪大於:</label>
-                    <input type="number" id="min-salary-input" placeholder="輸入數字即篩選" oninput="applyFilters()" style="width: 120px; background: #222; border: 1px solid #444; color: white; padding: 4px 8px; border-radius: 4px;">
+                <label>薪資類型與範圍</label>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <select id="salary-type" class="form-select" style="width: auto;">
+                        <option value="all">所有類型</option>
+                        <option value="月薪">月薪</option>
+                        <option value="年薪">年薪</option>
+                        <option value="時薪">時薪</option>
+                        <option value="日薪">日薪</option>
+                        <option value="論件">論件計酬</option>
+                        <option value="面議">面議</option>
+                    </select>
+
+                    <span id="salary-inputs-group" style="display: flex; gap: 5px; align-items: center;">
+                        <input type="number" id="min-salary-input" placeholder="最低" class="form-input" style="width: 80px;">
+                        <span>~</span>
+                        <input type="number" id="max-salary-input" placeholder="最高" class="form-input" style="width: 80px;">
+                    </span>
                 </div>
+            </div>
                 <div class="filter-group">
                      <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
-                     <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">存入 SQLite</button>
+                     <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫(.db)</button>
                 </div>
                 <div class="filter-group ml-auto"> 
                     <label>排序:</label>
@@ -121,7 +139,15 @@
                     </select>
                 </div>
             </div>
+            
             <div class="jobs-grid" id="jobs-container"></div>
+
+            <div class="btn-load-more-container">
+                <button id="btn-load-more" class="btn-load-more" onclick="loadMoreJobs()">
+                    查看更多職缺 (顯示 <span id="shown-count">0</span> / <span id="total-count">0</span>)
+                </button>
+            </div>
+
         </section>
       </div>
   </div>

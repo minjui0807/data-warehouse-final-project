@@ -52,9 +52,9 @@ def run_web_mode():
         app.run(debug=False, port=5000)
         
     except ImportError:
-        print("✗ 錯誤: 找不到Flask，請先安裝: pip install flask")
+        print("錯誤: 找不到Flask，請先安裝: pip install flask")
     except Exception as e:
-        print(f"✗ 啟動失敗: {e}")
+        print(f"啟動失敗: {e}")
 
 
 if __name__ == "__main__":

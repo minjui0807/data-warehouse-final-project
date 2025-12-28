@@ -698,3 +698,113 @@ nav a.nav-link {
     color: var(--gold);
     background: rgba(198, 169, 107, 0.1);
 }
+
+.brand-title.style-2 {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 30px;
+    font-weight: 900;     /* JOB 極粗 */
+    color: var(--text-light);
+    letter-spacing: -1px; /* 字距稍微擠壓，更有張力 */
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.brand-title.style-2 .highlight {
+    color: var(--gold);
+    font-weight: 300;     /* Miner 改用細體 */
+    letter-spacing: 1px;  /* Miner 字距拉開 */
+    /* 這裡不設 margin-left，讓它們緊挨著，強調是一個整體 */
+}
+
+/* --- 載入更多按鈕樣式 --- */
+.btn-load-more-container {
+    grid-column: 1 / -1; /* 跨滿整個 grid 寬度 */
+    text-align: center;
+    margin-top: 30px;
+    padding-bottom: 20px;
+}
+
+/* 翻頁按鈕顏色 */
+.btn-load-more {
+    background-color: transparent;
+    border: 1px solid var(--gold); /* 金色邊框 */
+    color: var(--gold);            /* 金色文字 */
+    padding: 12px 40px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-load-more:hover {
+    background-color: var(--gold); /* 滑鼠移過去變金色底 */
+    color: #111;                   /* 文字變深色 */
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+.btn-load-more:disabled {
+    border-color: #555;
+    color: #555;
+    cursor: not-allowed;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+/* --- Dark Mode 輸入框樣式 --- */
+.form-select, .form-input {
+    background-color: #2b2b2b;   /* 深灰背景 */
+    color: #ffffff;              /* 白字 */
+    border: 1px solid #444;      /* 邊框顏色 */
+    padding: 6px 10px;
+    border-radius: 4px;          /* 圓角 */
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-select:focus, .form-input:focus {
+    border-color: #ffa500;       /* 聚焦時變橘色 (配合你的主題) */
+    box-shadow: 0 0 5px rgba(255, 165, 0, 0.3);
+}
+
+/* 讓 placeholder 文字變淡灰，不要太亮 */
+.form-input::placeholder {
+    color: #888;
+}
+
+/* 下拉選單箭頭修正 (部分瀏覽器支援) */
+.form-select {
+    appearance: none; /* 移除預設樣式 */
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 30px; /* 預留箭頭空間 */
+}
+
+/* 頁籤內容預設隱藏 */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.5s ease;
+}
+
+/* 只有加了 active-tab 才會顯示 */
+.tab-content.active-tab {
+    display: block;
+}
+
+/* 導航按鈕的 active 狀態 (金色字體) */
+.nav-link.active {
+    color: var(--gold) !important;
+    border-bottom: 2px solid var(--gold);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

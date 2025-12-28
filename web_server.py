@@ -11,6 +11,7 @@ import numpy as np
 import os
 from concurrent.futures import ThreadPoolExecutor
 import matplotlib.ticker as ticker 
+import tempfile
 
 # 引用自訂爬蟲模組
 from job_spider_104 import Job104Spider
@@ -41,13 +42,13 @@ TEXT_COLOR = '#E0E0E0'
 BAR_COLOR = '#C6A96B'    # 金色
 
 PIE_COLORS = [
-    '#ffadad', 
-    '#ffd6a5', 
-    '#fdffb6', 
-    '#caffbf', 
-    '#9bf6ff', 
-    '#a0c4ff', 
-    '#bdb2ff'  
+    '#F6E59E', 
+    '#ECD895', 
+    '#D8BF84', 
+    '#C6A96B', 
+    '#B89D60', 
+    '#A88F58', 
+    '#8F7A4A'  
 ]
 
 def fig_to_base64(fig):
@@ -344,28 +345,45 @@ def filter_jobs():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
-@app.route('/api/save_db', methods=['POST'])
-def save_db():
+@app.route('/api/export_db', methods=['POST'])
+def export_db():
     try:
         data = request.json
         jobs = data.get('jobs', [])
+        keyword = data.get('keyword', 'jobs')
         min_salary = data.get('min_salary') 
-        if not jobs: return jsonify({'status': 'error', 'message': '沒有資料可儲存'})
+        
+        if not jobs: return jsonify({'status': 'error', 'message': '沒有資料可匯出'})
+
+        # 1. 整理資料 (同原本邏輯)
         df = pd.DataFrame(jobs)
         if min_salary:
             df = filter_dataframe_by_salary(df, min_salary)
-            if df.empty: return jsonify({'status': 'error', 'message': f'沒有薪水高於 {min_salary} 的職缺可儲存'})
+        
         for col in COLUMN_ORDER:
             if col not in df.columns: df[col] = ''
         df = df[COLUMN_ORDER]
-        conn = sqlite3.connect('job_database.db')
-        df.to_sql('search_results', conn, if_exists='replace', index=False)
+        
+        # 2. (新功能) 建立暫存檔
+        fd, temp_path = tempfile.mkstemp(suffix='.db')
+        os.close(fd) # 關閉檔案描述符，只要路徑
+
+        # 3. (新功能) 寫入 SQLite 到暫存檔
+        conn = sqlite3.connect(temp_path)
+        df.to_sql('jobs', conn, if_exists='replace', index=False)
         conn.close()
-        msg = f'已成功將 {len(df)} 筆資料寫入資料庫'
-        if min_salary: msg += f' (篩選條件: > {min_salary})'
-        return jsonify({'status': 'success', 'message': msg})
+        
+        # 4. (新功能) 透過 send_file 讓瀏覽器下載
+        return send_file(
+            temp_path, 
+            as_attachment=True, 
+            download_name=f"{keyword}.db", 
+            mimetype='application/x-sqlite3'
+        )
+
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        print(f"DB Export Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/export_csv', methods=['POST'])
 def export_csv():
