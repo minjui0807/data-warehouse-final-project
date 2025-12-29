@@ -4,8 +4,12 @@
   <meta charset="UTF-8" />
   <title>JOB Miner — 全方位職缺分析系統</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -16,6 +20,7 @@
     <nav>
       <a href="#" class="nav-link active" onclick="switchTab('market')">市場分析</a>
       <a href="#" class="nav-link" onclick="switchTab('trend')">職缺趨勢比較</a>
+      <a href="#" class="nav-link" onclick="switchTab('history'); loadHistoryList();">歷史紀錄查詢</a>
     </nav>
   </header>
 
@@ -26,15 +31,15 @@
         
         <div class="search-container">
           <div class="input-group" style="flex: 2;">
-            <input type="text" id="keyword" class="search-input" placeholder="請輸入職缺關鍵字 (例如: Python 工程師)" value="Python">
+            <input type="text" id="keyword" class="search-input" placeholder="請輸入職缺關鍵字 (例如: Python 工程師)" value="python">
           </div>
           <div class="input-group" style="flex: 1;">
             <input type="text" id="max_num" class="search-input" placeholder="各平台抓取筆數" value="200">
           </div>
           
-          <button id="btn-search" type="button" class="btn-search">開始分析職缺</button>
-          
+          <button id="btn-search" type="button" class="btn-search" onclick="startScraping()">開始分析職缺</button>
         </div>
+        
         <div id="loader" class="loader">
             正在搜尋各平台資料<span class="dot-animation"></span>
         </div>
@@ -42,8 +47,9 @@
 
       <div id="results-area">
         <div class="actions-bar">
-            <button class="btn-action" onclick="exportAllCSV()">匯出原始資料 (CSV)</button>
+            <button class="btn-action" onclick="exportCSV()">匯出原始資料 (CSV)</button>
             <button class="btn-action" onclick="saveAllToDB()">匯出資料庫 (db檔)</button>
+            <button class="btn-action" onclick="saveToHistoryServer()">存入伺服器紀錄(可在歷史紀錄查看)</button>
         </div>
 
         <section class="stats-grid">
@@ -105,7 +111,7 @@
                     </div>
                 </div>
                 <div class="filter-group">
-                <label>薪資類型與範圍</label>
+                <label>薪資類型:</label>
                 <div style="display: flex; gap: 5px; align-items: center;">
                     <select id="salary-type" class="form-select" style="width: auto;">
                         <option value="all">所有類型</option>
@@ -125,8 +131,8 @@
                 </div>
             </div>
                 <div class="filter-group">
-                     <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
-                     <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫(.db)</button>
+                      <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
+                      <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫</button>
                 </div>
                 <div class="filter-group ml-auto"> 
                     <label>排序:</label>
@@ -147,7 +153,6 @@
                     查看更多職缺 (顯示 <span id="shown-count">0</span> / <span id="total-count">0</span>)
                 </button>
             </div>
-
         </section>
       </div>
   </div>
@@ -164,11 +169,9 @@
                 <button class="btn-add" onclick="addKeywordCard('')" style="flex:1;">
                     <span style="font-size:18px; margin-right:5px;">+</span> 新增比較項目
                 </button>
-                
-                <button id="btn-stats" type="button" class="btn-search" style="flex:2;">
+                <button id="btn-stats" type="button" class="btn-search" style="flex:2;" onclick="startTrendAnalysis()">
                     開始統計分析
                 </button>
-                
             </div>
         </div>
         
@@ -196,7 +199,141 @@
       </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- 歷史資料庫 -->
+  <div id="view-history" class="tab-content">
+    
+    <div id="history-list-view">
+        <section class="hero" style="min-height: auto; padding: 40px 0;">
+            <h2>伺服器歷史紀錄庫</h2>
+            <p style="color: #888;">點擊卡片檢視當時的分析數據</p>
+        </section>
+        <div id="history-list-container" class="history-grid">
+        </div>
+    </div>
+
+    <div id="history-detail-view" style="display: none;">
+        <div class="history-header-container">
+            <div class="history-title-center">
+                <h2 id="h-keyword-title">職缺名稱</h2>
+                <p id="h-save-time" class="save-time-badge">2025-12-29 20:21:52</p>
+                
+                <div class="header-action-row">
+                    <button onclick="backToHistoryList()" class="btn-back-modern">
+                        <i class="fas fa-arrow-left"></i> 返回紀錄列表
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+
+        <section class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">總職缺數</span>
+                <span class="stat-value" id="h-total-jobs">0</span>
+                <span class="stat-trend">歷史存檔數據</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">平均月薪</span>
+                <span class="stat-value" id="h-avg-salary">0</span>
+                <span class="stat-trend">新台幣 / 月</span>
+            </div>
+            <div class="stat-card">
+                <div class="card-title">平台資料來源</div>
+                <div class="platform-dual-container flex-grow-content">
+                    <div class="platform-box">
+                        <span class="p-value" id="h-count-104">0</span>
+                        <span class="p-label color-104">104</span>
+                    </div>
+                    <div class="vertical-line"></div>
+                    <div class="platform-box">
+                        <span class="p-value" id="h-count-1111">0</span>
+                        <span class="p-label color-1111">1111</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div>
+                <h3 class="section-title">薪資分佈區間</h3>
+                <div class="chart-container" id="h-chart-salary"></div>
+            </div>
+            <div>
+                <h3 class="section-title">職缺地區分佈</h3>
+                <div class="chart-container" id="h-chart-location"></div>
+            </div>
+        </section>
+
+        <section class="jobs-section">
+            <h3 class="section-title">存檔職缺明細</h3>
+            
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>地區:</label>
+                    <select id="h-filter-city" onchange="applyHistoryFilters()">
+                        <option value="all">所有縣市</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>平台:</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="h-cb-104" value="104" checked onchange="applyHistoryFilters()"> 104</label>
+                        <label><input type="checkbox" id="h-cb-1111" value="1111" checked onchange="applyHistoryFilters()"> 1111</label>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>薪資類型:</label>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <select id="h-salary-type" class="form-select" style="width: auto;">
+                            <option value="all">所有類型</option>
+                            <option value="月薪">月薪</option>
+                            <option value="年薪">年薪</option>
+                            <option value="時薪">時薪</option>
+                            <option value="日薪">日薪</option>
+                            <option value="論件">論件計酬</option>
+                            <option value="面議">面議</option>
+                        </select>
+
+                        <div id="h-salary-inputs-group" style="display: flex; gap: 5px; align-items: center;">
+                            <input type="number" id="h-min-salary-input" placeholder="最低" class="form-input" style="width: 80px;">
+                            <span>~</span>
+                            <input type="number" id="h-max-salary-input" placeholder="最高" class="form-input" style="width: 80px;">
+                        </div>
+
+                    </div>
+                </div>
+                <div class="filter-group">
+                      <button onclick="exportHistoryCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
+                      <button onclick="downloadHistoryDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出資料庫</button>
+                </div>
+                <div class="filter-group ml-auto"> 
+                    <label>排序:</label>
+                    <select id="h-sort-by" onchange="applyHistoryFilters()">
+                        <option value="default">預設排序</option>
+                        <option value="salary_desc">薪資 (高 → 低)</option>
+                        <option value="salary_asc">薪資 (低 → 高)</option>
+                        <option value="date_desc">更新日期 (新 → 舊)</option>
+                        <option value="company">公司名稱 (A → Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="h-jobs-list" class="jobs-grid"></div>
+
+            <div class="btn-load-more-container" id="h-load-more-container" style="display:none; margin-top:20px;">
+                <button id="h-btn-load-more" class="btn-load-more" onclick="loadMoreHistoryJobs()">
+                    查看更多存檔職缺 (顯示 <span id="h-shown-count">0</span> / <span id="h-total-count">0</span>)
+                </button>
+            </div>
+        </section>
+
+    </div>
+  </div>
+
+    <button id="scroll-to-top" title="回到頂端">
+        <i class="fas fa-chevron-up"></i>
+    </button>
+
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

@@ -1,13 +1,19 @@
 // static/script.js
 
-// --- 全域變數 ---
+// --- 全域變數 (主搜尋用) ---
 let currentJobsData = [];   // ★ 原始完整資料
 let filteredJobsData = [];  // ★ 目前篩選後的資料
 let currentKeyword = '';
 let isComparing = false;    // 全域鎖
 
+// --- 全域變數 (歷史紀錄用) --- NEW ★
+let historyJobsData = [];      // 歷史紀錄的原始資料
+let filteredHistoryJobs = [];  // 歷史紀錄的篩選後資料
+let currentHistoryKeyword = ''; // 歷史紀錄的關鍵字
+
 // --- 分頁相關變數 ---
-let currentPage = 1;
+let currentPage = 1; //首頁的
+let currentHistoryPage = 1; //歷史紀錄的
 const ITEMS_PER_PAGE = 50;
 
 // =========================================================
@@ -90,28 +96,57 @@ function updateUI(data) {
 // =========================================================
 
 // 初始化縣市下拉選單
-function initCityFilter(jobs) {
-    const citySelect = document.getElementById('filter-city');
+function initCityFilter(jobs, targetId = 'filter-city') {
+    const citySelect = document.getElementById(targetId);
     if (!citySelect) return;
 
     const cities = new Set();
+    
+    // 1. 台灣縣市正則 (台北市、彰化縣等)
+    const taiwanCityRegex = /^[^\s,]{2}[縣市]/;
+    // 2. 國外行政邊界 (州、國、省)
+    const globalBoundaryRegex = /^.*?[州國省]/;
+
     jobs.forEach(job => {
-        if (job.location && job.location.length >= 3) {
-            cities.add(job.location.substring(0, 3));
+        if (job.location) {
+            let loc = job.location.trim();
+            
+            // 優先判斷是否為台灣縣市
+            const twMatch = loc.match(taiwanCityRegex);
+            if (twMatch) {
+                cities.add(twMatch[0]);
+            } else {
+                // 判斷是否有 "州/國/省" 邊界
+                const globalMatch = loc.match(globalBoundaryRegex);
+                if (globalMatch) {
+                    // 抓到第一個 州/國/省 就停止
+                    cities.add(globalMatch[0]);
+                } else {
+                    // 都沒有的話，抓前 2 或 3 個字作為代表
+                    cities.add(loc.length > 3 ? loc.substring(0, 3) : loc);
+                }
+            }
         }
     });
 
     citySelect.innerHTML = '<option value="all">全部地區</option>';
     
-    Array.from(cities).sort().forEach(city => {
-        const option = document.createElement('option');
-        option.value = city;
-        option.textContent = city;
-        citySelect.appendChild(option);
+    // 排序：使用繁體中文排序邏輯
+    const sortedCities = Array.from(cities).sort((a, b) => {
+        return a.localeCompare(b, 'zh-Hant');
+    });
+
+    sortedCities.forEach(city => {
+        if (city && city !== 'null') {
+            const option = document.createElement('option');
+            option.value = city;
+            option.textContent = city;
+            citySelect.appendChild(option);
+        }
     });
 }
 
-// ★ 關鍵修正：UI 切換 (隱藏輸入框與波浪號，並清空數值)
+// 薪水數值框關鍵修正：UI 切換 (隱藏輸入框與波浪號，並清空數值)
 function toggleSalaryInputs() {
     const sTypeSelect = document.getElementById('salary-type');
     const group = document.getElementById('salary-inputs-group'); // 包裹輸入框和 ~ 的父層
@@ -126,14 +161,10 @@ function toggleSalaryInputs() {
     const shouldHide = (sType === 'all' || sType === '面議' || sType === '論件');
 
     if (shouldHide) {
-        // 隱藏整組 (包含 ~)
         group.style.display = 'none';
-        
-        // ★ 關鍵：隱藏時清空數值，避免影響篩選
         if (minInput) minInput.value = '';
         if (maxInput) maxInput.value = '';
     } else {
-        // 顯示
         group.style.display = 'flex';
     }
     
@@ -141,37 +172,20 @@ function toggleSalaryInputs() {
     applyFilters();
 }
 
-// ★ 補上：解析薪資範圍的函式 (數字篩選核心)
+// ★ 解析薪資範圍的函式 (共用)
 function parseSalaryRange(salaryStr) {
     if (!salaryStr) return { low: 0, high: 0 };
-    
-    // 移除逗號
     let clean = salaryStr.replace(/,/g, '');
-    
-    // 抓取所有數字
     let matches = clean.match(/\d+/g);
-    
     if (!matches) return { low: 0, high: 0 };
-    
     let nums = matches.map(n => parseInt(n));
-    
-    // 只有一個數字 (例如: 月薪 40000 以上)
-    if (nums.length === 1) {
-        return { low: nums[0], high: nums[0] };
-    }
-    
-    // 有兩個數字 (例如: 月薪 35000~45000)
-    if (nums.length >= 2) {
-        return { low: nums[0], high: nums[1] };
-    }
-    
+    if (nums.length === 1) return { low: nums[0], high: nums[0] };
+    if (nums.length >= 2) return { low: nums[0], high: nums[1] };
     return { low: 0, high: 0 };
 }
 
-// 核心篩選函式
+// 核心篩選函式 (主搜尋用)
 function applyFilters() {
-    console.log("執行篩選..."); // Debug 用
-
     const citySelect = document.getElementById('filter-city');
     if(!citySelect) return; 
 
@@ -179,79 +193,70 @@ function applyFilters() {
     const show104 = document.getElementById('cb-104') ? document.getElementById('cb-104').checked : true;
     const show1111 = document.getElementById('cb-1111') ? document.getElementById('cb-1111').checked : true;
     const sortBy = document.getElementById('sort-by').value;
-
     const salaryType = document.getElementById('salary-type').value; 
-    
-    // 注意：這裡使用統一名稱 min-salary-input / max-salary-input
     const minInput = document.getElementById('min-salary-input');
     const maxInput = document.getElementById('max-salary-input');
-    
     const salaryMin = (minInput && minInput.value) ? parseInt(minInput.value) : 0;
     const salaryMax = (maxInput && maxInput.value) ? parseInt(maxInput.value) : 0;
 
     // 1. 篩選邏輯
     filteredJobsData = currentJobsData.filter(job => {
-        // (A) 平台
-        if (job.platform === '104' && !show104) return false;
-        if (job.platform === '1111' && !show1111) return false;
-        
-        // (B) 地點
-        if (cityFilter !== 'all' && !job.location.startsWith(cityFilter)) return false;
-
-        // (C) 薪資類型 (文字比對)
-        // 如果不是選 "all"，就要檢查文字是否包含 (例如選"月薪"，薪資字串必須有"月薪")
-        if (salaryType !== 'all') {
-            if (!job.salary) return false; // 沒寫薪資的踢掉
-            
-            // 特殊處理：選 "面議" 時，只要有 "面議" 兩字就過關，不比對數字
-            if (salaryType === '面議') {
-                return job.salary.includes('面議');
-            }
-            
-            // 其他類型 (月薪、時薪...)
-            if (!job.salary.includes(salaryType)) return false;
-        }
-
-        // (D) 薪資數字篩選 (只有當類型不是 "面議" 且不是 "論件" 時才執行)
-        // 且只有當使用者有輸入 min 或 max 時才執行
-        if (salaryType !== '面議' && salaryType !== '論件') {
-            if (salaryMin > 0 || salaryMax > 0) {
-                // 解析該職缺的薪資數字
-                const { low, high } = parseSalaryRange(job.salary);
-
-                // 如果解析出來是 0 (例如格式錯誤)，但使用者又有要求數字 -> 踢掉
-                if (low === 0 && high === 0) return false;
-
-                // 檢查最小值：職缺的 Low 必須 >= 使用者輸入的 Min
-                if (salaryMin > 0 && low < salaryMin) return false;
-
-                // 檢查最大值：職缺的 High 必須 <= 使用者輸入的 Max
-                if (salaryMax > 0 && high > salaryMax) return false;
-            }
-        }
-
-        return true;
+        // 共用過濾邏輯
+        return checkJobFilter(job, cityFilter, show104, show1111, salaryType, salaryMin, salaryMax);
     });
 
     // 2. 排序
-    filteredJobsData.sort((a, b) => {
-        // 為了排序準確，即時解析薪資
-        const valA = parseSalaryRange(a.salary).low;
-        const valB = parseSalaryRange(b.salary).low;
-
-        if (sortBy === 'salary_desc') return valB - valA;
-        if (sortBy === 'salary_asc') return valA - valB;
-        
-        if (sortBy === 'date_desc') return (b.update_date || '').localeCompare(a.update_date || '');
-        if (sortBy === 'company') return a.company_name.localeCompare(b.company_name, 'zh-Hant');
-        return 0; 
-    });
+    sortJobs(filteredJobsData, sortBy);
 
     // 3. 重置頁面
     currentPage = 1;
     const container = document.getElementById('jobs-container');
     if(container) container.innerHTML = '';
     renderCurrentPage();
+}
+
+// 抽離出共用的單筆篩選判斷 (給主搜尋和歷史紀錄共用)
+function checkJobFilter(job, city, s104, s1111, sType, sMin, sMax) {
+    // (A) 平台
+    if (job.platform === '104' && !s104) return false;
+    if (job.platform === '1111' && !s1111) return false;
+    
+    // (B) 地點
+    if (city !== 'all' && !job.location.startsWith(city)) return false;
+
+    // (C) 薪資類型
+    if (sType !== 'all') {
+        if (!job.salary) return false;
+        if (sType === '面議') {
+            return job.salary.includes('面議');
+        }
+        if (!job.salary.includes(sType)) return false;
+    }
+
+    // (D) 薪資數字
+    if (sType !== '面議' && sType !== '論件') {
+        if (sMin > 0 || sMax > 0) {
+            const { low, high } = parseSalaryRange(job.salary);
+            if (low === 0 && high === 0) return false;
+            if (sMin > 0 && low < sMin) return false;
+            if (sMax > 0 && high > sMax) return false;
+        }
+    }
+    return true;
+}
+
+// 抽離出共用的排序邏輯
+function sortJobs(jobsArray, sortBy) {
+    jobsArray.sort((a, b) => {
+        const valA = parseSalaryRange(a.salary).low;
+        const valB = parseSalaryRange(b.salary).low;
+
+        if (sortBy === 'salary_desc') return valB - valA;
+        if (sortBy === 'salary_asc') return valA - valB;
+        if (sortBy === 'date_desc') return (b.update_date || '').localeCompare(a.update_date || '');
+        if (sortBy === 'company') return a.company_name.localeCompare(b.company_name, 'zh-Hant');
+        return 0; 
+    });
 }
 
 function renderCurrentPage() {
@@ -262,7 +267,6 @@ function renderCurrentPage() {
 
     if(!container) return;
 
-    // 無資料處理
     if (filteredJobsData.length === 0) {
         container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #666; padding: 40px;">沒有符合篩選條件的職缺</div>';
         if(btnLoadMore) btnLoadMore.style.display = 'none';
@@ -271,37 +275,12 @@ function renderCurrentPage() {
         return;
     }
 
-    // 分頁計算
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     const end = start + ITEMS_PER_PAGE;
     const pageJobs = filteredJobsData.slice(start, end);
 
     const fragment = document.createDocumentFragment();
-
-    pageJobs.forEach(job => {
-        const tagClass = job.platform === '104' ? 'tag-104' : 'tag-1111';
-        const dateStr = job.update_date || '近期';
-        const salaryStr = job.salary || '面議';
-        const locStr = job.location || '台灣';
-        
-        const a = document.createElement('a');
-        a.href = job.job_url;
-        a.target = "_blank";
-        a.className = "job-card";
-        a.innerHTML = `
-            <div class="job-header">
-                <span class="platform-tag ${tagClass}">${job.platform}</span>
-                <span class="job-date">${dateStr}</span>
-            </div>
-            <h4 class="job-title">${job.name}</h4>
-            <p class="job-company">${job.company_name}</p>
-            <div class="job-meta">
-                <span class="salary">${salaryStr}</span>
-                <span class="location">${locStr}</span>
-            </div>
-        `;
-        fragment.appendChild(a);
-    });
+    pageJobs.forEach(job => fragment.appendChild(createJobCard(job)));
 
     container.appendChild(fragment);
 
@@ -326,24 +305,44 @@ function loadMoreJobs() {
     renderCurrentPage();
 }
 
+// 建立單張職缺卡片的 HTML 元素
+function createJobCard(job) {
+    const tagClass = job.platform === '104' ? 'tag-104' : 'tag-1111';
+    const dateStr = job.update_date || '近期';
+    const salaryStr = job.salary || '面議';
+    const locStr = job.location || '台灣';
+    
+    const a = document.createElement('a');
+    a.href = job.job_url;
+    a.target = "_blank";
+    a.className = "job-card";
+    a.innerHTML = `
+        <div class="job-header">
+            <span class="platform-tag ${tagClass}">${job.platform}</span>
+            <span class="job-date">${dateStr}</span>
+        </div>
+        <h4 class="job-title">${job.name}</h4>
+        <p class="job-company">${job.company_name}</p>
+        <div class="job-meta">
+            <span class="salary">${salaryStr}</span>
+            <span class="location">${locStr}</span>
+        </div>
+    `;
+    return a;
+}
+
 // =========================================================
 // 3. 匯出功能區
 // =========================================================
 
-// 通用的 CSV 匯出邏輯
-async function _exportCSV(dataToExport, suffix) {
+// 通用的 CSV 匯出邏輯 (支援歷史紀錄)
+async function _exportCSV(dataToExport, suffix, keywordOverride) {
     if (!dataToExport || dataToExport.length === 0) { alert('沒有資料可匯出'); return; }
     
-    const sType = document.getElementById('salary-type').value;
-    const sMin = document.getElementById('min-salary-input').value;
-    const sMax = document.getElementById('max-salary-input').value;
-    
+    const finalKeyword = keywordOverride || currentKeyword;
+
+    // 簡易檔名後綴
     let filenameSuffix = suffix;
-    if (suffix !== 'Raw_Full') {
-        if (sType !== 'all') filenameSuffix += `_${sType}`;
-        if (sMin) filenameSuffix += `_Over${sMin}`;
-        if (sMax) filenameSuffix += `_Under${sMax}`;
-    }
     
     try {
         const response = await fetch('/api/export_csv', {
@@ -351,8 +350,8 @@ async function _exportCSV(dataToExport, suffix) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 jobs: dataToExport, 
-                keyword: currentKeyword, 
-                min_salary: sMin 
+                keyword: finalKeyword, 
+                min_salary: '' 
             })
         });
         
@@ -361,7 +360,7 @@ async function _exportCSV(dataToExport, suffix) {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${currentKeyword}_${filenameSuffix}.csv`;
+            a.download = `${finalKeyword}_${filenameSuffix}.csv`;
             document.body.appendChild(a); a.click(); a.remove();
             window.URL.revokeObjectURL(url);
         } else { 
@@ -370,39 +369,31 @@ async function _exportCSV(dataToExport, suffix) {
     } catch(e) { console.error(e); alert("匯出過程發生錯誤"); }
 }
 
-// ★★★ 新增：通用的 DB 下載邏輯 (取代舊的 _saveToDB) ★★★
-async function _downloadDB(dataToExport, suffix) {
+async function _downloadDB(dataToExport, suffix, keywordOverride) {
     if (!dataToExport || dataToExport.length === 0) { alert('沒有資料可匯出'); return; }
     
-    // 取得篩選條件，主要是為了傳給後端做二次確認或紀錄，或者過濾條件
-    const minSalary = document.getElementById('min-salary-input') ? document.getElementById('min-salary-input').value : '';
-
+    const finalKeyword = keywordOverride || currentKeyword;
+    
     try {
-        // 改成呼叫新的 /api/export_db 接口
         const response = await fetch('/api/export_db', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 jobs: dataToExport, 
-                keyword: currentKeyword, 
-                min_salary: minSalary 
+                keyword: finalKeyword, 
+                min_salary: ''
             })
         });
 
         if (response.ok) {
-            // 處理二進位檔案流 (Blob)
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            // 設定下載檔名
-            a.download = `${currentKeyword}_${suffix}.db`;
-            document.body.appendChild(a); 
-            a.click(); 
-            a.remove();
+            a.download = `${finalKeyword}_${suffix}.db`;
+            document.body.appendChild(a); a.click(); a.remove();
             window.URL.revokeObjectURL(url);
         } else {
-            // 嘗試讀取錯誤訊息
             const errData = await response.json();
             alert('下載失敗: ' + (errData.message || '未知錯誤'));
         }
@@ -412,34 +403,16 @@ async function _downloadDB(dataToExport, suffix) {
     }
 }
 
-// 1. 匯出全部 CSV
-function exportAllCSV() { 
-    console.log("匯出完整 CSV");
-    _exportCSV(currentJobsData, "full_jobs"); 
-}
-
-// 2. 匯出篩選 CSV
-function exportFilteredCSV() { 
-    console.log("匯出篩選 CSV");
-    _exportCSV(filteredJobsData, "filtered_jobs"); 
-}
-
-// 3. 下載全部 DB (呼叫新的 _downloadDB)
-function saveAllToDB() { 
-    console.log("下載完整 DB");
-    _downloadDB(currentJobsData, "full_jobs"); 
-}
-
-// 4. 下載篩選 DB (呼叫新的 _downloadDB)
-function saveFilteredToDB() { 
-    console.log("下載篩選 DB");
-    _downloadDB(filteredJobsData, "filtered_jobs"); 
-}
+// 主搜尋的匯出
+function exportAllCSV() { _exportCSV(currentJobsData, "full_jobs"); }
+function exportFilteredCSV() { _exportCSV(filteredJobsData, "filtered_jobs"); }
+function saveAllToDB() { _downloadDB(currentJobsData, "full_jobs"); }
+function saveFilteredToDB() { _downloadDB(filteredJobsData, "filtered_jobs"); }
 
 // =========================================================
 // 4. 多職缺比較功能區
 // =========================================================
-
+// (保持原樣，篇幅省略，若有需要請參考原代碼或上方邏輯)
 function addKeywordCard(value = '') {
     const container = document.getElementById('keywords-container');
     if (!container) return; 
@@ -450,14 +423,12 @@ function addKeywordCard(value = '') {
     input.className = 'keyword-input';
     input.placeholder = '職缺名稱';
     input.value = value;
-    
     input.addEventListener("keypress", function(event) {
         if (event.key === "Enter") {
             event.preventDefault();
             compareJobs(event);
         }
     });
-
     const btnDel = document.createElement('button');
     btnDel.className = 'btn-remove';
     btnDel.innerHTML = '&times;';
@@ -476,7 +447,6 @@ async function compareJobs(e) {
     const btn = document.getElementById('btn-stats');
     const loader = document.getElementById('loader-stats') || document.getElementById('loader'); 
     const textStatsArea = document.getElementById('text-stats-area');
-    
     const inputs = document.querySelectorAll('.keyword-input');
     let keywords = [];
     inputs.forEach(input => {
@@ -525,19 +495,341 @@ async function compareJobs(e) {
     }
 }
 
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
-    const target = document.getElementById(`tab-${tabId}`);
-    if(target) target.classList.add('active');
-    
-    const btn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
-    if(btn) btn.classList.add('active');
+function switchTab(tabName) {
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(div => {
+        div.style.display = 'none';
+        div.classList.remove('active-tab');
+    });
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+    });
+    const target = document.getElementById('view-' + tabName);
+    if (target) {
+        target.style.display = 'block';
+        setTimeout(() => target.classList.add('active-tab'), 10);
+    }
+    const activeBtn = document.querySelector(`.nav-link[onclick*="'${tabName}'"]`);
+    if(activeBtn) {
+        activeBtn.classList.add('active');
+    }
 }
 
 // =========================================================
-// 5. 初始化 (更新監聽事件)
+// 5. 歷史紀錄功能區 (補強篩選與匯出)
+// =========================================================
+
+async function loadHistoryItem(batchId, keyword, time) {
+    const loader = document.getElementById('loader');
+    if(loader) loader.classList.add('active');
+
+    try {
+        const response = await fetch('/api/load_history_item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ batch_id: batchId })
+        });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            document.getElementById('history-list-view').style.display = 'none';
+            document.getElementById('history-detail-view').style.display = 'block';
+
+            historyJobsData = data.jobs;
+            filteredHistoryJobs = data.jobs;
+            currentHistoryKeyword = keyword;
+            currentHistoryPage = 1; // ★ 重置歷史頁碼
+
+            renderHistoryView(data, keyword, time);
+        } else {
+            alert('讀取失敗');
+        }
+    } catch(e) {
+        console.error(e);
+        alert('系統錯誤');
+    } finally {
+        if(loader) loader.classList.remove('active');
+    }
+}
+
+// ★ 歷史紀錄專用：核心篩選函式 (修正後的版本)
+function applyHistoryFilters() {
+    // 取得所有控制項元素
+    const cityEl = document.getElementById('h-filter-city');
+    const sTypeEl = document.getElementById('h-salary-type');
+    const sortEl = document.getElementById('h-sort-by');
+    const cb104 = document.getElementById('h-cb-104');
+    const cb1111 = document.getElementById('h-cb-1111');
+    const minEl = document.getElementById('h-min-salary-input');
+    const maxEl = document.getElementById('h-max-salary-input');
+
+    if (!cityEl) return;
+
+    // 取得數值
+    const city = cityEl.value;
+    const sType = sTypeEl.value;
+    const sortBy = sortEl.value;
+    const show104 = cb104 ? cb104.checked : true;
+    const show1111 = cb1111 ? cb1111.checked : true;
+    const sMin = parseInt(minEl?.value || 0);
+    const sMax = parseInt(maxEl?.value || 0);
+
+    // 1. 執行過濾邏輯 (複用您寫好的 checkJobFilter)
+    filteredHistoryJobs = historyJobsData.filter(job => {
+        return checkJobFilter(job, city, show104, show1111, sType, sMin, sMax);
+    });
+
+    // 2. 執行排序
+    sortJobs(filteredHistoryJobs, sortBy);
+    
+    // 3. ★ 關鍵修正：重置分頁狀態並「清空容器」
+    currentHistoryPage = 1; 
+    const container = document.getElementById('h-jobs-list');
+    if (container) {
+        container.innerHTML = ''; // 必須清空，否則會累積到 100 筆以上
+    }
+    
+    // 4. 執行渲染 (會從第 1 頁開始抓 50 筆)
+    renderHistoryJobs();
+}
+
+// ★ 歷史紀錄渲染 (包含 50 筆分頁邏輯)
+function renderHistoryJobs() {
+    const container = document.getElementById('h-jobs-list');
+    const loadMoreContainer = document.getElementById('h-load-more-container');
+    const spanShown = document.getElementById('h-shown-count');
+    const spanTotal = document.getElementById('h-total-count');
+
+    if (!container) return;
+
+    if (filteredHistoryJobs.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding:20px; grid-column: 1/-1;">無符合條件的職缺</p>';
+        if(loadMoreContainer) loadMoreContainer.style.display = 'none';
+        if(spanShown) spanShown.innerText = 0;
+        if(spanTotal) spanTotal.innerText = 0;
+        return;
+    }
+
+    // 計算分頁範圍
+    const start = (currentHistoryPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageJobs = filteredHistoryJobs.slice(start, end);
+
+    // 渲染卡片
+    const fragment = document.createDocumentFragment();
+    pageJobs.forEach(job => fragment.appendChild(createJobCard(job)));
+    container.appendChild(fragment);
+
+    // 更新下方數字與按鈕狀態
+    const currentShown = Math.min(end, filteredHistoryJobs.length);
+    if(spanShown) spanShown.innerText = currentShown;
+    if(spanTotal) spanTotal.innerText = filteredHistoryJobs.length;
+
+    // 判斷是否還有更多
+    if (currentShown >= filteredHistoryJobs.length) {
+        if(loadMoreContainer) loadMoreContainer.style.display = 'none';
+    } else {
+        if(loadMoreContainer) {
+            loadMoreContainer.style.display = 'block';
+            const btn = document.getElementById('h-btn-load-more');
+            if(btn) btn.innerHTML = `查看更多歷史職缺 (已顯示 ${currentShown} / ${filteredHistoryJobs.length})`;
+        }
+    }
+}
+
+// ★ 新增：歷史紀錄點擊載入更多
+function loadMoreHistoryJobs() {
+    currentHistoryPage++;
+    renderHistoryJobs();
+}
+
+async function saveToHistoryServer() {
+    if (!currentJobsData || currentJobsData.length === 0) {
+        alert('目前畫面沒有資料，無法存檔。請先進行搜尋。');
+        return;
+    }
+    const keyword = document.getElementById('keyword').value || currentKeyword || '未命名';
+    if(!confirm(`確定要將目前的 ${currentJobsData.length} 筆「${keyword}」資料存入歷史庫嗎？`)) return;
+
+    try {
+        const response = await fetch('/api/save_history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                jobs: currentJobsData, 
+                keyword: keyword 
+            })
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            alert(result.message);
+        } else {
+            alert('儲存失敗: ' + result.message);
+        }
+    } catch(e) {
+        console.error(e);
+        alert('連線錯誤，請檢查後端伺服器');
+    }
+}
+
+async function loadHistoryList() {
+    document.getElementById('history-list-view').style.display = 'block';
+    document.getElementById('history-detail-view').style.display = 'none';
+
+    const container = document.getElementById('history-list-container');
+    container.innerHTML = '<p style="text-align:center; color:#666;">讀取中...</p>';
+
+    try {
+        const response = await fetch('/api/get_history_list');
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            container.innerHTML = '';
+            if (result.data.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#666;">無資料</p>';
+                return;
+            }
+            result.data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'history-card';
+                
+                const delBtn = document.createElement('div');
+                delBtn.className = 'btn-delete-card';
+                delBtn.innerHTML = '×';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteHistoryItem(item.batch_id);
+                };
+
+                const content = document.createElement('div');
+                content.onclick = () => loadHistoryItem(item.batch_id, item.keyword, item.save_time);
+                content.innerHTML = `
+                    <h4>${item.keyword}</h4>
+                    <div class="history-meta">
+                        <span style="color:#C6A96B; border:1px solid #C6A96B; padding:2px 6px; border-radius:4px; font-size:12px;">
+                            ${item.count} 筆職缺
+                        </span>
+                        <span>${item.save_time}</span>
+                    </div>
+                `;
+                card.appendChild(delBtn);
+                card.appendChild(content);
+                container.appendChild(card);
+            });
+        }
+    } catch(e) {
+        console.error(e);
+        container.innerHTML = '載入失敗';
+    }
+}
+
+// 刪除歷史紀錄
+async function deleteHistoryItem(batchId) {
+    if (!confirm('確定要永久刪除這筆紀錄嗎？')) return;
+    try {
+        const response = await fetch('/api/delete_history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ batch_id: batchId })
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            loadHistoryList();
+        } else {
+            alert('刪除失敗');
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function loadHistoryItem(batchId, keyword, time) {
+    const loader = document.getElementById('loader');
+    if(loader) loader.classList.add('active');
+
+    try {
+        const response = await fetch('/api/load_history_item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ batch_id: batchId })
+        });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            document.getElementById('history-list-view').style.display = 'none';
+            document.getElementById('history-detail-view').style.display = 'block';
+
+            historyJobsData = data.jobs;
+            filteredHistoryJobs = data.jobs;
+            currentHistoryKeyword = keyword;
+
+            renderHistoryView(data, keyword, time);
+        } else {
+            alert('讀取失敗');
+        }
+    } catch(e) {
+        console.error(e);
+        alert('系統錯誤');
+    } finally {
+        if(loader) loader.classList.remove('active');
+    }
+}
+
+function backToHistoryList() {
+    document.getElementById('history-detail-view').style.display = 'none';
+    document.getElementById('history-list-view').style.display = 'block';
+    historyJobsData = [];
+    filteredHistoryJobs = [];
+}
+
+// 渲染歷史詳細畫面
+function renderHistoryView(data, keyword, time) {
+    document.getElementById('h-keyword-title').innerText = keyword;
+    document.getElementById('h-save-time').innerText = time;
+    document.getElementById('h-total-jobs').innerText = data.stats.total;
+    document.getElementById('h-avg-salary').innerText = Math.round(data.stats.avg_salary).toLocaleString();
+    document.getElementById('h-count-104').innerText = data.stats.count_104;
+    document.getElementById('h-count-1111').innerText = data.stats.count_1111;
+
+    if (data.charts.salary_dist) {
+        document.getElementById('h-chart-salary').innerHTML = 
+            `<img src="data:image/png;base64,${data.charts.salary_dist}" style="width:100%; border-radius:8px;">`;
+    }
+    if (data.charts.location_pie) {
+        document.getElementById('h-chart-location').innerHTML = 
+            `<img src="data:image/png;base64,${data.charts.location_pie}" style="width:100%; border-radius:8px;">`;
+    }
+
+    // 初始化歷史區地區選單
+    initCityFilter(data.jobs, 'h-filter-city');
+    
+    // 初始化薪資輸入框顯示狀態
+    toggleHistorySalaryInputs();
+}
+
+// 歷史紀錄區專用的薪資輸入框切換
+function toggleHistorySalaryInputs() {
+    const sType = document.getElementById('h-salary-type').value;
+    const group = document.getElementById('h-salary-inputs-group');
+    if (!group) return;
+
+    if (sType === 'all' || sType === '面議' || sType === '論件') {
+        group.style.display = 'none';
+        document.getElementById('h-min-salary-input').value = '';
+        document.getElementById('h-max-salary-input').value = '';
+    } else {
+        group.style.display = 'flex';
+    }
+    applyHistoryFilters();
+}
+
+
+
+// 歷史紀錄匯出功能
+function exportHistoryCSV() { _exportCSV(filteredHistoryJobs, "history_filtered", currentHistoryKeyword); }
+function downloadHistoryDB() { _downloadDB(filteredHistoryJobs, "history_filtered", currentHistoryKeyword); }
+
+// =========================================================
+// 6. 初始化 (更新監聽事件)
 // =========================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -557,25 +849,22 @@ document.addEventListener('DOMContentLoaded', () => {
         filterDebounce = setTimeout(applyFilters, 300); 
     }
 
-    // 綁定下拉選單
+    // 主搜尋篩選監聽
     ['filter-city', 'cb-104', 'cb-1111', 'sort-by'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', applyFilters);
     });
     
-    // 綁定薪資類型下拉選單 (這會觸發 toggleSalaryInputs)
     const salaryTypeSelect = document.getElementById('salary-type');
     if (salaryTypeSelect) {
         salaryTypeSelect.addEventListener('change', toggleSalaryInputs);
     }
 
-    // 綁定數字輸入框 (注意 ID 已經改為 min-salary-input)
     ['min-salary-input', 'max-salary-input'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('keyup', debouncedFilter);
     });
 
-    // 綁定「載入更多」按鈕
     const btnLoadMore = document.getElementById('btn-load-more');
     if (btnLoadMore) {
         btnLoadMore.addEventListener('click', loadMoreJobs);
@@ -591,7 +880,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 4. 初始化歷史紀錄區篩選監聽 (新增部分，不更動原有邏輯)
+    let hFilterDebounce;
+    function debouncedHistoryFilter() {
+        clearTimeout(hFilterDebounce);
+        hFilterDebounce = setTimeout(applyHistoryFilters, 300); 
+    }
+
+    // 歷史區下拉選單與勾選框
+    ['h-filter-city', 'h-cb-104', 'h-cb-1111', 'h-sort-by'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', applyHistoryFilters);
+    });
+    
+    // 歷史區薪資類型切換
+    const hSalaryTypeSelect = document.getElementById('h-salary-type');
+    if (hSalaryTypeSelect) {
+        hSalaryTypeSelect.addEventListener('change', toggleHistorySalaryInputs);
+    }
+
+    // 歷史區薪資輸入框 (同樣套用防抖)
+    ['h-min-salary-input', 'h-max-salary-input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keyup', debouncedHistoryFilter);
+    });
+
     switchTab('market');
-    // 頁面載入後執行一次狀態檢查 (確保輸入框初始狀態正確)
     toggleSalaryInputs();
+
+
+    // --- 回到頂端按鈕功能 ---
+    const topBtn = document.getElementById('scroll-to-top');
+
+    if (topBtn) {
+        // 監聽滾動事件
+        window.onscroll = function() {
+            if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+                topBtn.style.display = "block";
+                topBtn.style.opacity = "1";
+            } else {
+                topBtn.style.opacity = "0";
+                setTimeout(() => { if(topBtn.style.opacity === "0") topBtn.style.display = "none"; }, 300);
+            }
+        };
+
+        // 點擊滾動回最上方
+        topBtn.onclick = function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth' // 平滑滾動
+            });
+        };
+    }
 });

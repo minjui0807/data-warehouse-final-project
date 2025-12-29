@@ -12,6 +12,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 import matplotlib.ticker as ticker 
 import tempfile
+from datetime import datetime
+import time
 
 # 引用自訂爬蟲模組
 from job_spider_104 import Job104Spider
@@ -213,6 +215,16 @@ def search_jobs():
 
     if not jobs_data:
         return jsonify({'status': 'error', 'message': '未找到相關職缺'})
+    
+    # --- 修改點：直接呼叫剛剛寫好的 analyze_jobs ---
+    stats, charts = analyze_jobs(jobs_data, keyword)
+
+    return jsonify({
+        'status': 'success', 
+        'jobs': jobs_data, 
+        'charts': charts, 
+        'stats': stats
+    })
 
     df = pd.DataFrame(jobs_data)
     charts = {}
@@ -403,5 +415,331 @@ def export_csv():
         csv_buffer.seek(0)
         filename = f"{keyword}_jobs" + (f"_over_{min_salary}" if min_salary else "") + ".csv"
         return send_file(csv_buffer, mimetype='text/csv', as_attachment=True, download_name=filename)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+    
+
+# --- 新增：獨立的分析與繪圖函數 (讓搜尋和歷史紀錄共用) ---
+def analyze_jobs(jobs_data, keyword):
+    if not jobs_data:
+        return {}, {}
+
+    df = pd.DataFrame(jobs_data)
+    charts = {}
+
+    # --- 1. 薪資分佈圖 (長寬比 2:1) ---
+    # 先確保有 avg_salary 欄位
+    if 'avg_salary' not in df.columns:
+        df['avg_salary'] = df['salary'].apply(parse_salary_for_web)
+    
+    salary_valid = df[(df['avg_salary'] > 20000) & (df['avg_salary'] < 300000)]['avg_salary']
+    
+    if not salary_valid.empty:
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        fig1.patch.set_facecolor(BG_COLOR)
+        ax1.set_facecolor(BG_COLOR)
+        
+        n, bins, patches = ax1.hist(salary_valid, bins=12, color=BAR_COLOR, edgecolor=BG_COLOR, alpha=0.9)
+        
+        ax1.set_title(f"{keyword} 薪資分佈", color=TEXT_COLOR, fontsize=16, pad=15)
+        ax1.set_ylabel("職缺數", color=TEXT_COLOR, fontsize=11)
+        
+        def salary_formatter(x, pos):
+            if x >= 10000: return f'{int(x):,}'
+            return str(int(x))
+            
+        ax1.xaxis.set_major_formatter(ticker.FuncFormatter(salary_formatter))
+        ax1.tick_params(axis='x', colors=TEXT_COLOR, labelsize=10)
+        ax1.tick_params(axis='y', colors=TEXT_COLOR)
+        
+        for spine in ax1.spines.values():
+            spine.set_edgecolor('#444')
+        ax1.grid(axis='y', linestyle='--', alpha=0.2, color='white')
+        
+        for i in range(len(patches)):
+            if n[i] > 0:
+                ax1.text(patches[i].get_x() + patches[i].get_width() / 2, n[i], str(int(n[i])), 
+                         ha='center', va='bottom', color=TEXT_COLOR, fontsize=9)
+
+        plt.subplots_adjust(left=0.08, right=0.98, top=0.9, bottom=0.1)
+        charts['salary_dist'] = fig_to_base64(fig1)
+        plt.close(fig1)
+
+    # --- 2. 地區分佈圖 ---
+    city_counts = df['location'].apply(get_city).value_counts()
+    
+    if len(city_counts) > 7:
+        main = city_counts[:6]
+        other_sum = city_counts[6:].sum()
+        if other_sum > 0:
+            other = pd.Series({'其他': other_sum})
+            city_counts = pd.concat([main, other])
+        else:
+            city_counts = main
+    
+    if not city_counts.empty:
+        fig2, ax2 = plt.subplots(figsize=(6, 5))
+        fig2.patch.set_facecolor(BG_COLOR)
+        
+        wedges, texts, autotexts = ax2.pie(
+            city_counts, 
+            labels=city_counts.index, 
+            autopct='%1.1f%%', 
+            colors=PIE_COLORS[:len(city_counts)], 
+            startangle=90,
+            pctdistance=0.7,
+            labeldistance=1.1, 
+            textprops={'color': TEXT_COLOR, 'fontsize': 10}
+        )
+        
+        for autotext in autotexts:
+            autotext.set_color('#161616')
+            autotext.set_weight('bold')
+            autotext.set_fontsize(10)
+
+        ax2.set_title(f"{keyword} 地區佔比", color=TEXT_COLOR, fontsize=16, pad=40)
+        
+        ax2.legend(wedges, city_counts.index,
+                   loc="lower center", 
+                   bbox_to_anchor=(0.5, -0.28), 
+                   ncol=4, 
+                   frameon=False, 
+                   labelcolor=TEXT_COLOR,
+                   fontsize=9)
+        
+        ax2.axis('equal')  
+        plt.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.1)
+        
+        charts['location_pie'] = fig_to_base64(fig2)
+        plt.close(fig2)
+
+    # --- 3. 計算統計數據 ---
+    stats = {
+        'total': len(df),
+        'avg_salary': int(salary_valid.mean()) if not salary_valid.empty else 0,
+        'count_104': len(df[df['platform'] == '104']),
+        'count_1111': len(df[df['platform'] == '1111'])
+    }
+    
+    # 確保每個 job 都有 salary_sort 供前端排序
+    for job in jobs_data: 
+        job['salary_sort'] = parse_salary_for_web(job.get('salary', ''))
+
+    return stats, charts
+
+# --- 新增：資料庫初始化函數 ---
+def init_history_db():
+    # 這裡只做基本檢查，實際建表邏輯在 save_history 內也有，雙重保險
+    try:
+        with sqlite3.connect('history_jobs.db') as conn:
+            c = conn.cursor()
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS history_batches (
+                    batch_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    keyword TEXT,
+                    save_time TEXT,
+                    total_count INTEGER,
+                    avg_salary INTEGER,
+                    count_104 INTEGER,
+                    count_1111 INTEGER,
+                    chart_salary TEXT,
+                    chart_location TEXT
+                )
+            ''')
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS history_details (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    batch_id INTEGER,
+                    platform TEXT,
+                    name TEXT,
+                    company_name TEXT,
+                    location TEXT,
+                    salary TEXT,
+                    job_url TEXT,
+                    update_date TEXT,
+                    FOREIGN KEY(batch_id) REFERENCES history_batches(batch_id) ON DELETE CASCADE
+                )
+            ''')
+            conn.commit()
+    except Exception as e:
+        print(f"Init DB Warning: {e}")
+
+# 在程式啟動時執行初始化
+init_history_db()
+
+# --- 路由 1：儲存搜尋結果 (修正版：自動產圖並存入雙資料表) ---
+@app.route('/api/save_history', methods=['POST'])
+def save_history():
+    try:
+        data = request.json
+        jobs = data.get('jobs', [])
+        keyword = data.get('keyword', '未命名搜尋')
+        save_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        if not jobs:
+            return jsonify({'status': 'error', 'message': '沒有資料可儲存'})
+
+        # 1. 直接利用現有的分析函式產生統計數據與圖表字串
+        try:
+            stats, charts = analyze_jobs(jobs, keyword)
+            avg_salary = stats.get('avg_salary', 0)
+            count_104 = stats.get('count_104', 0)
+            count_1111 = stats.get('count_1111', 0)
+            chart_salary = charts.get('salary_dist', '')
+            chart_location = charts.get('location_pie', '')
+        except Exception as e:
+            print(f"Analysis Error during save: {e}")
+            avg_salary, count_104, count_1111 = 0, 0, 0
+            chart_salary, chart_location = "", ""
+
+        # 2. 寫入資料庫 (使用 with 語法確保連線安全)
+        with sqlite3.connect('history_jobs.db') as conn:
+            c = conn.cursor()
+
+            # (A) 寫入主表 (Batch)
+            c.execute('''
+                INSERT INTO history_batches (keyword, save_time, total_count, avg_salary, count_104, count_1111, chart_salary, chart_location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (keyword, save_time, len(jobs), avg_salary, count_104, count_1111, chart_salary, chart_location))
+            
+            batch_id = c.lastrowid
+
+            # (B) 寫入明細表 (Details)
+            details_data = []
+            for j in jobs:
+                details_data.append((
+                    batch_id,
+                    j.get('platform'),
+                    j.get('name'),
+                    j.get('company_name'),
+                    j.get('location'),
+                    j.get('salary'),
+                    j.get('job_url'),
+                    j.get('update_date')
+                ))
+            
+            c.executemany('''
+                INSERT INTO history_details (batch_id, platform, name, company_name, location, salary, job_url, update_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', details_data)
+            
+            conn.commit()
+
+        return jsonify({'status': 'success', 'message': f'成功儲存 {len(jobs)} 筆資料！'})
+
+    except Exception as e:
+        print(f"Save Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
+
+# --- 路由 2：取得歷史紀錄列表 (修正版：讀取 history_batches) ---
+@app.route('/api/get_history_list', methods=['GET'])
+def get_history_list():
+    try:
+        with sqlite3.connect('history_jobs.db') as conn:
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            # 讀取主表資訊
+            c.execute('''
+                SELECT batch_id, keyword, save_time, total_count, avg_salary, count_104, count_1111 
+                FROM history_batches 
+                ORDER BY batch_id DESC
+            ''')
+            rows = c.fetchall()
+
+        history_list = []
+        for row in rows:
+            history_list.append({
+                'batch_id': row['batch_id'],
+                'keyword': row['keyword'],
+                'save_time': row['save_time'],
+                'count': row['total_count'],
+                'avg_salary': row['avg_salary'],
+                'count_104': row['count_104'],
+                'count_1111': row['count_1111']
+            })
+        
+        return jsonify({'status': 'success', 'data': history_list})
+    except Exception as e:
+        print(f"Get List Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# --- 路由 3：讀取某一筆歷史詳細資料 (修正版：關聯讀取並回傳圖表) ---
+@app.route('/api/load_history_item', methods=['POST'])
+def load_history_item():
+    try:
+        batch_id = request.json.get('batch_id')
+        
+        with sqlite3.connect('history_jobs.db') as conn:
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            
+            # 1. 先讀取主表 (包含原本存好的圖表字串)
+            c.execute('SELECT * FROM history_batches WHERE batch_id = ?', (batch_id,))
+            batch_row = c.fetchone()
+            
+            if not batch_row:
+                return jsonify({'status': 'error', 'message': '找不到該筆紀錄'})
+            
+            # 2. 讀取明細表 (職缺列表)
+            c.execute('SELECT * FROM history_details WHERE batch_id = ?', (batch_id,))
+            details_rows = c.fetchall()
+
+        jobs = []
+        for row in details_rows:
+            jobs.append({
+                'platform': row['platform'],
+                'name': row['name'],
+                'company_name': row['company_name'],
+                'location': row['location'],
+                'salary': row['salary'],
+                'job_url': row['job_url'],
+                'update_date': row['update_date']
+            })
+            
+        # 準備回傳的資料
+        # 我們直接使用資料庫存好的圖表，不重新生成，速度會比較快
+        charts = {
+            'salary_dist': batch_row['chart_salary'],
+            'location_pie': batch_row['chart_location']
+        }
+        
+        stats = {
+            'total': batch_row['total_count'],
+            'avg_salary': batch_row['avg_salary'],
+            'count_104': batch_row['count_104'],
+            'count_1111': batch_row['count_1111']
+        }
+
+        return jsonify({
+            'status': 'success', 
+            'jobs': jobs,
+            'stats': stats,
+            'charts': charts
+        })
+
+    except Exception as e:
+        print(f"Load History Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+def get_db_connection():
+    # 這是舊的 helper，為了相容性保留，但建議主要用 with sqlite3.connect
+    conn = sqlite3.connect('history_jobs.db') 
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# --- 路由 4：刪除歷史紀錄 (修正版：正確縮排與連線) ---
+@app.route('/api/delete_history', methods=['POST'])
+def delete_history():
+    batch_id = request.json.get('batch_id')
+    try:
+        with sqlite3.connect('history_jobs.db') as conn:
+            c = conn.cursor()
+            # 只要刪除主表，因設定了 ON DELETE CASCADE，明細表會自動刪除
+            # 但為了保險，我們顯式刪除兩者
+            c.execute('DELETE FROM history_details WHERE batch_id = ?', (batch_id,))
+            c.execute('DELETE FROM history_batches WHERE batch_id = ?', (batch_id,))
+            conn.commit()
+            
+        return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
