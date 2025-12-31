@@ -14,7 +14,7 @@ let currentHistoryKeyword = ''; // 歷史紀錄的關鍵字
 // --- 分頁相關變數 ---
 let currentPage = 1; //首頁的
 let currentHistoryPage = 1; //歷史紀錄的
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 30;
 
 // =========================================================
 // 1. 核心邏輯區 (搜尋與資料抓取)
@@ -51,6 +51,10 @@ async function startAnalysis(e) {
             currentJobsData = data.jobs;   // 保存原始檔
             filteredJobsData = data.jobs;  // 初始篩選檔 = 原始檔
             currentPage = 1;               // 重置頁碼
+
+            // 【新增這行】自動存入伺服器紀錄，並傳入 true 表示不彈出視窗
+            console.log("正在自動備份至歷史紀錄...");
+            saveToHistoryServer(true);
             
             updateUI(data); 
             resultsArea.classList.add('visible'); 
@@ -334,6 +338,9 @@ function createJobCard(job) {
 // =========================================================
 // 3. 匯出功能區
 // =========================================================
+
+function exportCSV() { _exportCSV(currentJobsData, "full_jobs"); } 
+function exportFilteredCSV() { _exportCSV(filteredJobsData, "filtered_jobs"); }
 
 // 通用的 CSV 匯出邏輯 (支援歷史紀錄)
 async function _exportCSV(dataToExport, suffix, keywordOverride) {
@@ -650,7 +657,6 @@ async function saveToHistoryServer() {
         return;
     }
     const keyword = document.getElementById('keyword').value || currentKeyword || '未命名';
-    if(!confirm(`確定要將目前的 ${currentJobsData.length} 筆「${keyword}」資料存入歷史庫嗎？`)) return;
 
     try {
         const response = await fetch('/api/save_history', {
@@ -662,38 +668,57 @@ async function saveToHistoryServer() {
             })
         });
         const result = await response.json();
+        // 2. 移除成功/失敗的 alert：改用 console 記錄結果
         if (result.status === 'success') {
-            alert(result.message);
+            console.log('自動存檔成功:', result.message);
         } else {
-            alert('儲存失敗: ' + result.message);
+            console.error('自動儲存失敗:', result.message);
         }
     } catch(e) {
-        console.error(e);
-        alert('連線錯誤，請檢查後端伺服器');
+        // 3. 移除連線錯誤的 alert
+        console.error('自動存檔連線錯誤:', e);
     }
 }
 
 async function loadHistoryList() {
+    // 切換視圖
     document.getElementById('history-list-view').style.display = 'block';
     document.getElementById('history-detail-view').style.display = 'none';
 
     const container = document.getElementById('history-list-container');
+    // 1. 取得剛剛在 HTML 新增的空狀態區塊
+    const emptyState = document.getElementById('history-empty-state');
+
+    // 初始狀態：顯示讀取中，隱藏空狀態
     container.innerHTML = '<p style="text-align:center; color:#666;">讀取中...</p>';
+    container.style.display = 'grid'; // 確保列表容器是顯示的
+    if (emptyState) emptyState.style.display = 'none';
 
     try {
         const response = await fetch('/api/get_history_list');
         const result = await response.json();
 
         if (result.status === 'success') {
-            container.innerHTML = '';
+            container.innerHTML = ''; // 清除讀取中文字
+
+            // 2. ★ 修改這裡：判斷有無資料來決定顯示哪個區塊
             if (result.data.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:#666;">無資料</p>';
+                // --- 沒資料：隱藏列表，顯示空狀態 ---
+                container.style.display = 'none';
+                if (emptyState) emptyState.style.display = 'block';
                 return;
             }
+
+            // --- 有資料：顯示列表，隱藏空狀態 ---
+            container.style.display = 'grid';
+            if (emptyState) emptyState.style.display = 'none';
+
+            // 3. 渲染卡片 (保持原本邏輯)
             result.data.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'history-card';
                 
+                // 刪除按鈕
                 const delBtn = document.createElement('div');
                 delBtn.className = 'btn-delete-card';
                 delBtn.innerHTML = '×';
@@ -702,6 +727,7 @@ async function loadHistoryList() {
                     deleteHistoryItem(item.batch_id);
                 };
 
+                // 卡片內容
                 const content = document.createElement('div');
                 content.onclick = () => loadHistoryItem(item.batch_id, item.keyword, item.save_time);
                 content.innerHTML = `
@@ -713,6 +739,7 @@ async function loadHistoryList() {
                         <span>${item.save_time}</span>
                     </div>
                 `;
+                
                 card.appendChild(delBtn);
                 card.appendChild(content);
                 container.appendChild(card);
@@ -720,7 +747,8 @@ async function loadHistoryList() {
         }
     } catch(e) {
         console.error(e);
-        container.innerHTML = '載入失敗';
+        container.style.display = 'block';
+        container.innerHTML = '<p style="text-align:center; color:red;">讀取失敗，請檢查連線</p>';
     }
 }
 

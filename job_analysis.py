@@ -1,3 +1,4 @@
+#原終端機功能，怕網頁版有用到所以留著
 import time
 import sys
 import threading, itertools
@@ -16,7 +17,7 @@ from job_spider_1111 import Job1111Spider
 plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
 plt.rcParams['axes.unicode_minus'] = False
 
-# 功能1: 整合搜尋(同時查104與1111) - 加速版
+# 功能1: 整合搜尋(同時查104與1111)
 def run_job_search():
     spider104 = Job104Spider()
     spider1111 = Job1111Spider()

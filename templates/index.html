@@ -47,9 +47,8 @@
 
       <div id="results-area">
         <div class="actions-bar">
-            <button class="btn-action" onclick="exportCSV()">匯出原始資料 (CSV)</button>
-            <button class="btn-action" onclick="saveAllToDB()">匯出資料庫 (db檔)</button>
-            <button class="btn-action" onclick="saveToHistoryServer()">存入伺服器紀錄(可在歷史紀錄查看)</button>
+            <button class="btn-action" onclick="exportCSV()">匯出完整CSV檔</button>
+            <button class="btn-action" onclick="saveAllToDB()">匯出完整資料庫(db檔)</button>
         </div>
 
         <section class="stats-grid">
@@ -131,8 +130,8 @@
                 </div>
             </div>
                 <div class="filter-group">
-                      <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
-                      <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫</button>
+                      <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV檔案</button>
+                      <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫 (.db檔)</button>
                 </div>
                 <div class="filter-group ml-auto"> 
                     <label>排序:</label>
@@ -207,8 +206,19 @@
             <h2>伺服器歷史紀錄庫</h2>
             <p style="color: #888;">點擊卡片檢視當時的分析數據</p>
         </section>
-        <div id="history-list-container" class="history-grid">
-        </div>
+        <div id="history-list-container" class="history-grid"></div>
+        <!-- 如果無資料 -->
+        <div id="history-empty-state" class="empty-state-container" style="display: none;">
+          <div class="empty-icon">
+              <i class="fas fa-folder-open"></i>
+          </div>
+          <h3>目前尚無歷史紀錄</h3>
+          <p>您尚未儲存任何職缺分析資料。<br>請前往市場分析進行搜尋，系統將自動為您建立檔案。</p>
+          
+          <button onclick="switchTab('market')" class="btn-redirect">
+              <i class="fas fa-search"></i> 前往市場分析
+          </button>
+      </div>
     </div>
 
     <div id="history-detail-view" style="display: none;">
