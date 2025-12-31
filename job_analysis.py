@@ -1,4 +1,4 @@
-#原終端機功能，怕網頁版有用到所以留著
+#原終端機功能，沒有用到了但不要刪掉
 import time
 import sys
 import threading, itertools

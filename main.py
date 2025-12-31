@@ -1,4 +1,3 @@
-from job_analysis import run_job_search, run_chart_analysis
 import webbrowser
 import time
 

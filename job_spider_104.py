@@ -114,7 +114,7 @@ class Job104Spider():
             return 0, []
 
         all_jobs.extend(first_page_jobs)
-        print(f"{self.ORANGE}    [104] 104 官方顯示總數: {first_total} 筆{self.RESET}")
+        # print(f"{self.ORANGE}    [104] 104 官方顯示總數: {first_total} 筆{self.RESET}")
 
         real_target_num = min(max_num, first_total)
         pages_needed = math.ceil(real_target_num / 20)
