@@ -3,6 +3,7 @@ import requests
 import math
 import re
 import threading
+import random
 from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from requests.adapters import HTTPAdapter
@@ -80,6 +81,9 @@ class Job1111Spider():
         p['page'] = page
         p['_'] = int(time.time() * 1000)
         
+        # 模擬人類行為：隨機微幅延遲 0.2 ~ 0.8 秒
+        time.sleep(random.uniform(0.2, 0.8))
+
         if 'searchUrl' in p:
             if 'page=' in p['searchUrl']:
                 p['searchUrl'] = re.sub(r'page=\d+', f'page={page}', p['searchUrl'])
@@ -87,12 +91,19 @@ class Job1111Spider():
                 p['searchUrl'] += f"&page={page}"
 
         try:
+            # 增加一些常見的 Header 偽裝
             r = self.session.get(url, params=p, timeout=15)
+            
             with self.global_lock:
                 self.api_call_count += 1
                 
             if r.status_code == 200:
                 data = r.json()
+                # 檢查 1111 是否回傳了「空結果」但狀態碼是 200 (常見的軟封鎖)
+                if not data.get('result') and not data.get('data'):
+                    return 0, []
+                
+                # ... 原本的 parsing 邏輯 ...
                 jobs = []
                 total = 0
                 if 'result' in data:
@@ -100,14 +111,16 @@ class Job1111Spider():
                     total = data['result'].get('pagination', {}).get('totalCount', 0)
                 elif 'data' in data:
                     jobs = data.get('data', [])
-                    if 'pagination' in data:
-                        total = data['pagination'].get('totalCount', 0)
-                    else:
-                        total = data.get('total', len(jobs))
+                    total = data.get('pagination', {}).get('totalCount', 0) if 'pagination' in data else data.get('total', len(jobs))
                 return total, jobs
-            elif r.status_code == 429:
-                time.sleep(2)
-        except Exception:
+            
+            elif r.status_code == 429: # Too Many Requests
+                print(f"\n{self.BLUE}[警告] 觸發頻率限制，暫停 5 秒...{self.RESET}")
+                time.sleep(5)
+            elif r.status_code == 403:
+                print(f"\n{self.BLUE}[錯誤] IP 可能被封鎖 (403 Forbidden){self.RESET}")
+                self.abort_signal = True 
+        except Exception as e:
             pass 
         return 0, []
 
@@ -234,16 +247,16 @@ class Job1111Spider():
             # ==========================================
             # 2. 新增：10秒增加少於10筆 就停止 (智慧停損)
             # ==========================================
-            if current_time - self.monitor_timer > 10:
+            # 修改 search 內的監控邏輯
+            # 將 monitor_timer 的判定放寬
+            if current_time - self.monitor_timer > 20: # 從 10 秒放寬到 20 秒
                 growth = current_count - self.monitor_last_count
-                
-                # 如果這 10 秒內，爬蟲已經跑了一陣子 (請求數>50) 但新增資料 < 10 筆
-                if growth < 10 and self.api_call_count > 50:
-                    print(f"\n{self.BLUE}[1111] 監測觸發：過去 10 秒僅新增 {growth} 筆資料 (低於 10 筆)。{self.RESET}")
-                    print(f"{self.BLUE}[1111] 判定資料已乾枯，停止程式以節省資源。{self.RESET}")
+                # 只有在完全沒有新資料 (growth == 0) 且請求數已經很大時才考慮停止
+                if growth == 0 and self.api_call_count > 100:
+                    print(f"\n{self.BLUE}[1111] 資料已達極限，停止抓取。{self.RESET}")
                     self.abort_signal = True
                     break
-                
+                            
                 # 重置計時器與計數器
                 self.monitor_timer = current_time
                 self.monitor_last_count = current_count

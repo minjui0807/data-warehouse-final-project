@@ -44,13 +44,13 @@ TEXT_COLOR = '#E0E0E0'
 BAR_COLOR = '#C6A96B'    # 金色
 
 PIE_COLORS = [
-    '#F6E59E', 
-    '#ECD895', 
-    '#D8BF84', 
-    '#C6A96B', 
-    '#B89D60', 
-    '#A88F58', 
-    '#8F7A4A'  
+    '#C6A96B',  # 金色，主色
+    '#F2D38C',  # 淺金/米色
+    '#A67C52',  # 棕金色
+    '#D9B382',  # 柔和金棕
+    '#8C7B6B',  # 深咖啡
+    '#E8CFA8',  # 奶油色
+    '#BFA97A',  # 暖沙色
 ]
 
 def fig_to_base64(fig):
@@ -480,35 +480,37 @@ def analyze_jobs(jobs_data, keyword):
     if not city_counts.empty:
         fig2, ax2 = plt.subplots(figsize=(6, 5))
         fig2.patch.set_facecolor(BG_COLOR)
-        
+
         wedges, texts, autotexts = ax2.pie(
             city_counts, 
             labels=city_counts.index, 
-            autopct='%1.1f%%', 
+            autopct='%1.0f%%',          # 小數點去掉
             colors=PIE_COLORS[:len(city_counts)], 
             startangle=90,
             pctdistance=0.7,
-            labeldistance=1.1, 
-            textprops={'color': TEXT_COLOR, 'fontsize': 10}
+            labeldistance=1.05,         # 標籤更靠近切片
+            wedgeprops={'edgecolor': BG_COLOR, 'linewidth': 1},  # 增加切片邊界
+            textprops={'color': TEXT_COLOR, 'fontsize': 10, 'weight': 'bold'}
         )
-        
+
+        # 自動調整文字顏色對比
         for autotext in autotexts:
-            autotext.set_color('#161616')
+            autotext.set_color(BG_COLOR)
             autotext.set_weight('bold')
             autotext.set_fontsize(10)
 
         ax2.set_title(f"{keyword} 地區佔比", color=TEXT_COLOR, fontsize=16, pad=40)
-        
         ax2.legend(wedges, city_counts.index,
-                   loc="lower center", 
-                   bbox_to_anchor=(0.5, -0.28), 
-                   ncol=4, 
-                   frameon=False, 
-                   labelcolor=TEXT_COLOR,
-                   fontsize=9)
-        
+                loc="lower center", 
+                bbox_to_anchor=(0.5, -0.28), 
+                ncol=4, 
+                frameon=False, 
+                labelcolor=TEXT_COLOR,
+                fontsize=9)
+
         ax2.axis('equal')  
         plt.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.1)
+
         
         charts['location_pie'] = fig_to_base64(fig2)
         plt.close(fig2)
