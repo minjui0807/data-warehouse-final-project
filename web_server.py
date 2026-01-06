@@ -145,7 +145,7 @@ def compare_jobs():
         ax.set_ylabel('職缺數', color=TEXT_COLOR)
         ax.set_title('各職缺平台數量比較', color=TEXT_COLOR, fontsize=16, pad=20)
         ax.set_xticks(x)
-        ax.set_xticklabels(labels, color=TEXT_COLOR, fontsize=11)
+        ax.set_xticklabels(labels, color=TEXT_COLOR, fontsize=14)
         ax.tick_params(axis='y', colors=TEXT_COLOR)
         
         for spine in ax.spines.values():
@@ -159,7 +159,7 @@ def compare_jobs():
                 height = rect.get_height()
                 ax.annotate(f'{int(height):,}', xy=(rect.get_x() + rect.get_width() / 2, height),
                             xytext=(0, 3), textcoords="offset points",
-                            ha='center', va='bottom', color=TEXT_COLOR, fontsize=9, fontweight='bold')
+                            ha='center', va='bottom', color=TEXT_COLOR, fontsize=11, fontweight='bold')
         autolabel(rects1)
         autolabel(rects2)
 
@@ -218,120 +218,6 @@ def search_jobs():
     
     # --- 修改點：直接呼叫剛剛寫好的 analyze_jobs ---
     stats, charts = analyze_jobs(jobs_data, keyword)
-
-    return jsonify({
-        'status': 'success', 
-        'jobs': jobs_data, 
-        'charts': charts, 
-        'stats': stats
-    })
-
-    df = pd.DataFrame(jobs_data)
-    charts = {}
-
-    # --- 1. 薪資分佈圖 (長寬比 2:1) ---
-    df['avg_salary'] = df['salary'].apply(parse_salary_for_web)
-    salary_valid = df[(df['avg_salary'] > 20000) & (df['avg_salary'] < 300000)]['avg_salary']
-    
-    if not salary_valid.empty:
-        # [修改] 寬度設為 10，高度 5 (寬扁型)
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        fig1.patch.set_facecolor(BG_COLOR)
-        ax1.set_facecolor(BG_COLOR)
-        
-        n, bins, patches = ax1.hist(salary_valid, bins=12, color=BAR_COLOR, edgecolor=BG_COLOR, alpha=0.9)
-        
-        ax1.set_title(f"{keyword} 薪資分佈", color=TEXT_COLOR, fontsize=16, pad=15)
-        ax1.set_ylabel("職缺數", color=TEXT_COLOR, fontsize=11)
-        ax1.set_xlabel("", color=BG_COLOR) 
-        
-        # [修正] X軸刻度格式化：40,000
-        def salary_formatter(x, pos):
-            if x >= 10000: return f'{int(x):,}'
-            return str(int(x))
-            
-        ax1.xaxis.set_major_formatter(ticker.FuncFormatter(salary_formatter))
-        
-        ax1.tick_params(axis='x', colors=TEXT_COLOR, labelsize=10)
-        ax1.tick_params(axis='y', colors=TEXT_COLOR)
-        
-        for spine in ax1.spines.values():
-            spine.set_edgecolor('#444')
-        ax1.grid(axis='y', linestyle='--', alpha=0.2, color='white')
-        
-        # 標示數值
-        for i in range(len(patches)):
-            if n[i] > 0:
-                ax1.text(patches[i].get_x() + patches[i].get_width() / 2, n[i], str(int(n[i])), 
-                         ha='center', va='bottom', color=TEXT_COLOR, fontsize=9)
-
-        # [關鍵] 手動調整邊距
-        plt.subplots_adjust(left=0.08, right=0.98, top=0.9, bottom=0.1)
-
-        charts['salary_dist'] = fig_to_base64(fig1)
-        plt.close(fig1)
-
-    # --- 2. 地區分佈圖 (長寬比 接近 1:1) ---
-    city_counts = df['location'].apply(get_city).value_counts()
-    
-    # 強制只取前 6 名 + 其他
-    if len(city_counts) > 7:
-        main = city_counts[:6]
-        other_sum = city_counts[6:].sum()
-        if other_sum > 0:
-            other = pd.Series({'其他': other_sum})
-            city_counts = pd.concat([main, other])
-        else:
-            city_counts = main
-    
-    if not city_counts.empty:
-        # [修改] 寬度縮小到 6，高度維持 5 (方正型)
-        fig2, ax2 = plt.subplots(figsize=(6, 5))
-        fig2.patch.set_facecolor(BG_COLOR)
-        
-        wedges, texts, autotexts = ax2.pie(
-            city_counts, 
-            labels=city_counts.index, 
-            autopct='%1.1f%%', 
-            colors=PIE_COLORS[:len(city_counts)], 
-            startangle=90,
-            pctdistance=0.7,
-            labeldistance=1.1, 
-            textprops={'color': TEXT_COLOR, 'fontsize': 10}
-        )
-        
-        for autotext in autotexts:
-            autotext.set_color('#161616')
-            autotext.set_weight('bold')
-            autotext.set_fontsize(10)
-
-        ax2.set_title(f"{keyword} 地區佔比", color=TEXT_COLOR, fontsize=16, pad=40)
-        
-        # [修正] 圖例更緊湊，放在正下方
-        ax2.legend(wedges, city_counts.index,
-                  loc="lower center", 
-                  bbox_to_anchor=(0.5, -0.28), 
-                  ncol=4, 
-                  frameon=False, 
-                  labelcolor=TEXT_COLOR,
-                  fontsize=9)
-        
-        ax2.axis('equal')  
-        # [關鍵] 極限縮減邊界
-        plt.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.1)
-        
-        charts['location_pie'] = fig_to_base64(fig2)
-        plt.close(fig2)
-
-    stats = {
-        'total': len(df),
-        'avg_salary': int(salary_valid.mean()) if not salary_valid.empty else 0,
-        'count_104': len(df[df['platform'] == '104']),
-        'count_1111': len(df[df['platform'] == '1111'])
-    }
-    
-    for job in jobs_data: 
-        job['salary_sort'] = parse_salary_for_web(job.get('salary', ''))
 
     return jsonify({
         'status': 'success', 
@@ -440,17 +326,18 @@ def analyze_jobs(jobs_data, keyword):
         ax1.set_facecolor(BG_COLOR)
         
         n, bins, patches = ax1.hist(salary_valid, bins=12, color=BAR_COLOR, edgecolor=BG_COLOR, alpha=0.9)
-        
+
+        #薪資分布區間長條圖_標題
         ax1.set_title(f"{keyword} 薪資分佈", color=TEXT_COLOR, fontsize=16, pad=15)
-        ax1.set_ylabel("職缺數", color=TEXT_COLOR, fontsize=11)
+        ax1.set_ylabel("職缺數", color=TEXT_COLOR, fontsize=12)
         
         def salary_formatter(x, pos):
             if x >= 10000: return f'{int(x):,}'
             return str(int(x))
             
         ax1.xaxis.set_major_formatter(ticker.FuncFormatter(salary_formatter))
-        ax1.tick_params(axis='x', colors=TEXT_COLOR, labelsize=10)
-        ax1.tick_params(axis='y', colors=TEXT_COLOR)
+        ax1.tick_params(axis='x', colors=TEXT_COLOR, labelsize=12)
+        ax1.tick_params(axis='y', colors=TEXT_COLOR, labelsize=12)
         
         for spine in ax1.spines.values():
             spine.set_edgecolor('#444')
@@ -459,7 +346,7 @@ def analyze_jobs(jobs_data, keyword):
         for i in range(len(patches)):
             if n[i] > 0:
                 ax1.text(patches[i].get_x() + patches[i].get_width() / 2, n[i], str(int(n[i])), 
-                         ha='center', va='bottom', color=TEXT_COLOR, fontsize=9)
+                         ha='center', va='bottom', color=TEXT_COLOR, fontsize=11)
 
         plt.subplots_adjust(left=0.08, right=0.98, top=0.9, bottom=0.1)
         charts['salary_dist'] = fig_to_base64(fig1)
@@ -490,23 +377,26 @@ def analyze_jobs(jobs_data, keyword):
             pctdistance=0.7,
             labeldistance=1.05,         # 標籤更靠近切片
             wedgeprops={'edgecolor': BG_COLOR, 'linewidth': 1},  # 增加切片邊界
-            textprops={'color': TEXT_COLOR, 'fontsize': 10, 'weight': 'bold'}
+            textprops={'color': TEXT_COLOR, 'fontsize': 16, 'weight': 'bold'} #地區職缺圓餅圖 數字旁邊的圖標
         )
 
         # 自動調整文字顏色對比
         for autotext in autotexts:
             autotext.set_color(BG_COLOR)
             autotext.set_weight('bold')
-            autotext.set_fontsize(10)
+            autotext.set_fontsize(15) #市場分析_地區職缺_圓餅圖數字大小
 
-        ax2.set_title(f"{keyword} 地區佔比", color=TEXT_COLOR, fontsize=16, pad=40)
+        #市場分析_地區職缺圓餅圖_標題
+        ax2.set_title(f"{keyword} 地區佔比", color=TEXT_COLOR, fontsize=20, pad=40)
+
+        #市場分析_地區職缺圓餅圖_圖例
         ax2.legend(wedges, city_counts.index,
                 loc="lower center", 
-                bbox_to_anchor=(0.5, -0.28), 
+                bbox_to_anchor=(0.5, -0.45),  #圖例和圓餅圖的間距
                 ncol=4, 
                 frameon=False, 
                 labelcolor=TEXT_COLOR,
-                fontsize=9)
+                fontsize=16)
 
         ax2.axis('equal')  
         plt.subplots_adjust(left=0.02, right=0.98, top=0.92, bottom=0.1)

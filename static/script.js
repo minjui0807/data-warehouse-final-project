@@ -480,13 +480,13 @@ async function compareJobs(e) {
             document.getElementById('chart-stats').innerHTML = `<img src="data:image/png;base64,${data.chart}" style="width:100%;" />`;
             const listContainer = document.getElementById('stats-list');
             listContainer.innerHTML = '';
-            for (const [kw, count] of Object.entries(data.data)) {
-                listContainer.innerHTML += `
+            for (const [kw, count] of Object.entries(data.data)) { 
+                listContainer.innerHTML += ` 
                     <div style="background:#333; padding:8px 16px; border-radius:4px; border:1px solid #555; display:flex; align-items:center; justify-content:space-between; min-width: 150px;">
                         <span style="color:var(--gold); font-weight:bold; margin-right:10px;">${kw}</span> 
-                        <span style="color:white; font-size:18px;">${count.toLocaleString()}</span>
+                        <span style="color:white; font-size:20px;">${count.toLocaleString()}</span>
                     </div>`;
-            }
+            }// 上面這段是職缺趨勢比較_詳細數據的版型
             if(textStatsArea) textStatsArea.style.display = 'block';
         } else {
             alert('統計失敗: ' + data.message);
@@ -730,13 +730,14 @@ async function loadHistoryList() {
                 // 卡片內容
                 const content = document.createElement('div');
                 content.onclick = () => loadHistoryItem(item.batch_id, item.keyword, item.save_time);
+                // 歷史紀錄的卡片版型都寫死在這裡 其他地方改不了
                 content.innerHTML = `
                     <h4>${item.keyword}</h4>
                     <div class="history-meta">
-                        <span style="color:#C6A96B; border:1px solid #C6A96B; padding:2px 6px; border-radius:4px; font-size:12px;">
+                        <span style="color:#C6A96B; border:1px solid #C6A96B; padding: 6px 10px; border-radius:4px;">
                             ${item.count} 筆職缺
                         </span>
-                        <span>${item.save_time}</span>
+                        <span style="padding: 6px 10px;">${item.save_time}</span>
                     </div>
                 `;
                 
