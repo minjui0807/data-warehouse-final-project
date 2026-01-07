@@ -320,16 +320,25 @@ function createJobCard(job) {
     a.href = job.job_url;
     a.target = "_blank";
     a.className = "job-card";
+    
+    // 重新排列 HTML 結構
     a.innerHTML = `
         <div class="job-header">
             <span class="platform-tag ${tagClass}">${job.platform}</span>
             <span class="job-date">${dateStr}</span>
         </div>
-        <h4 class="job-title">${job.name}</h4>
+        
+        <div class="job-title-row">
+            <h4 class="job-title">${job.name}</h4>
+            <span class="salary-top">${salaryStr}</span>
+        </div>
+        
         <p class="job-company">${job.company_name}</p>
-        <div class="job-meta">
-            <span class="salary">${salaryStr}</span>
-            <span class="location">${locStr}</span>
+        
+        <div class="job-footer">
+            <span class="location-bottom">
+                <i class="fa-solid fa-location-dot" style="margin-right:4px;"></i>${locStr}
+            </span>
         </div>
     `;
     return a;
@@ -484,7 +493,7 @@ async function compareJobs(e) {
                 listContainer.innerHTML += ` 
                     <div style="background:#333; padding:8px 16px; border-radius:4px; border:1px solid #555; display:flex; align-items:center; justify-content:space-between; min-width: 150px;">
                         <span style="color:var(--gold); font-weight:bold; margin-right:10px;">${kw}</span> 
-                        <span style="color:white; font-size:20px;">${count.toLocaleString()}</span>
+                        <span style="color:white; font-size: 18px;">${count.toLocaleString()}</span>
                     </div>`;
             }// 上面這段是職缺趨勢比較_詳細數據的版型
             if(textStatsArea) textStatsArea.style.display = 'block';

@@ -113,7 +113,7 @@ nav a.active {
     color: var(--text-main);
     font-family: 'Inter', sans-serif;
     transition: border-color 0.3s;
-    font-size: 20px;
+    font-size: 18px;
 }
 
 .search-input:focus {
@@ -122,7 +122,7 @@ nav a.active {
 }
 
 .btn-search {
-    padding: 0 40px;
+    padding: 20px;
     border: 1px solid var(--gold);
     background: transparent;
     color: var(--gold);
@@ -345,11 +345,47 @@ nav a.active {
     color: var(--text-muted);
 }
 
+/* 讓標題與薪資水平排列，且薪資推到最右邊 */
+.job-title-row {
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
 .job-title {
+    flex: 1; /* 讓標題佔據剩餘空間 */
+    margin-bottom: 0; /* 移除原本的下間距 */
     font-size: 24px;
-    margin-bottom: 8px;
+    /* margin-bottom: 8px; */
     color: var(--text-main);
     line-height: 1.3;
+}
+
+/* 右上方薪資樣式 */
+.salary-top {
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 1.1rem;
+    white-space: nowrap; /* 防止薪資字串換行 */
+    text-align: right;
+}
+
+/* 下方區塊樣式 */
+.job-footer {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-start; /* 確保地點在左邊 */
+}
+
+.location-bottom {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+/* 移除原本舊有的 .job-meta 設定，避免衝突 */
+.job-meta {
+    display: none;
 }
 
 .job-company {
@@ -357,17 +393,6 @@ nav a.active {
     color: var(--text-muted);
     margin-bottom: 24px;
     font-weight: 300;
-}
-
-.job-meta {
-    margin-top: auto;
-    padding-top: 20px;
-    border-top: 1px solid #222;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--gold);
-    font-size: 18px;
 }
 
 /* Loader */
