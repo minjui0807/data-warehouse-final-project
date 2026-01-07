@@ -213,7 +213,7 @@ class Job1111Spider():
         
         if max_pages == 0: max_pages = 1 # 至少抓一頁
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             future_to_page = {
                 executor.submit(self._fetch_raw, page, url, base_payload): page
                 for page in range(1, max_pages + 1)

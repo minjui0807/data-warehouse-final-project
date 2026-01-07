@@ -551,7 +551,6 @@ async function loadHistoryItem(batchId, keyword, time) {
         if (data.status === 'success') {
             document.getElementById('history-list-view').style.display = 'none';
             document.getElementById('history-detail-view').style.display = 'block';
-
             historyJobsData = data.jobs;
             filteredHistoryJobs = data.jobs;
             currentHistoryKeyword = keyword;
@@ -653,7 +652,7 @@ function renderHistoryJobs() {
         }
     }
 
-    window.scrollTo(0, 0);
+    // window.scrollTo(0, 0);
 
     // 滾動效果
     // window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -847,6 +846,9 @@ function renderHistoryView(data, keyword, time) {
     
     // 初始化薪資輸入框顯示狀態
     toggleHistorySalaryInputs();
+
+    //滾動效果
+    window.scrollTo(0, 0);
 }
 
 // 歷史紀錄區專用的薪資輸入框切換
