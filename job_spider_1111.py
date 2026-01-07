@@ -5,7 +5,7 @@ import re
 import threading
 import random
 from urllib.parse import quote
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED, as_completed
 from requests.adapters import HTTPAdapter
 
 class Job1111Spider():
@@ -197,6 +197,41 @@ class Job1111Spider():
             return new_tasks
 
         return []
+    
+    def _strategy_simple_paging(self, url, total_count, base_payload):
+        print(f"{self.BLUE}[1111] 進入「簡單翻頁模式」 (API回傳總數： {total_count}){self.RESET}")
+
+        # [關鍵修復] 
+        # 計算實際需要的頁數：取「總頁數」與「目標頁數」的最小值
+        # 如果 target_num=1，這裡算出來 pages_needed 就會是 1，不會去跑 50 頁
+        
+        pages_by_total = math.ceil(total_count / 20)
+        pages_by_target = math.ceil(self.target_num / 20)
+        
+        # 最終頁數取三者最小：(總資料頁數, 目標頁數, 150頁上限)
+        max_pages = min(pages_by_total, pages_by_target, 150)
+        
+        if max_pages == 0: max_pages = 1 # 至少抓一頁
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_page = {
+                executor.submit(self._fetch_raw, page, url, base_payload): page
+                for page in range(1, max_pages + 1)
+            }
+
+            for future in as_completed(future_to_page):
+                page = future_to_page[future]
+                try:
+                    _, jobs = future.result()
+                    if jobs:
+                        self._add_jobs(jobs, "一般搜尋")
+                        print(f"\r{self.BLUE}[1111] 簡單模式: 已收集 {len(self.global_jobs)}/{self.target_num} 筆...{self.RESET}", end="")
+                        
+                        # 如果已經達標，可以提早結束 (雖然 ThreadPool 不易中斷，但至少停止 print)
+                        if len(self.global_jobs) >= self.target_num:
+                            break
+                except Exception as e:
+                    pass
 
     def search(self, keyword, max_num=5000):
         self.abort_signal = False
@@ -226,72 +261,76 @@ class Job1111Spider():
         if self.target_num <= 1 or len(self.global_jobs) >= self.target_num:
             return total_count, self.global_jobs
 
-        # 稍微降速到 30 workers 以求穩定
+        # 稍微降速到 10 workers 以求穩定
         executor = ThreadPoolExecutor(max_workers=10)
         futures = set()
 
-        f = executor.submit(self._process_task, 'check_split', {'payload': base_payload, 'level': 'root'}, '全域')
-        futures.add(f)
+        #資料數少的話就用簡單搜尋模式
+        if self.target_num < 4500 or total_count < 4500:
+            self._strategy_simple_paging(url, total_count, base_payload)
+        else:
+            f = executor.submit(self._process_task, 'check_split', {'payload': base_payload, 'level': 'root'}, '全域')
+            futures.add(f)
 
-        last_print_time = time.time()
+            last_print_time = time.time()
 
-        while futures:
-            current_count = len(self.global_jobs)
-            current_time = time.time()
-            
-            # 1. 達標檢查
-            if current_count >= self.target_num:
-                self.abort_signal = True
-                break
-
-            # ==========================================
-            # 2. 新增：10秒增加少於10筆 就停止 (智慧停損)
-            # ==========================================
-            # 修改 search 內的監控邏輯
-            # 將 monitor_timer 的判定放寬
-            if current_time - self.monitor_timer > 20: # 從 10 秒放寬到 20 秒
-                growth = current_count - self.monitor_last_count
-                # 只有在完全沒有新資料 (growth == 0) 且請求數已經很大時才考慮停止
-                if growth == 0 and self.api_call_count > 100:
-                    print(f"\n{self.BLUE}[1111] 資料已達極限，停止抓取。{self.RESET}")
+            while futures:
+                current_count = len(self.global_jobs)
+                current_time = time.time()
+                
+                # 1. 達標檢查
+                if current_count >= self.target_num:
                     self.abort_signal = True
                     break
-                            
-                # 重置計時器與計數器
-                self.monitor_timer = current_time
-                self.monitor_last_count = current_count
-            # ==========================================
 
-            # 3. 定時 Log (心跳包)
-            if current_time - last_print_time > 3:
-                percent = (current_count / self.target_num) * 100
-                print(f"\r{self.BLUE}[1111] 收集: {current_count}/{self.target_num} ({percent:.1f}%) | "
-                      f"重複: {self.duplicate_count} | 請求: {self.api_call_count} | "
-                      f"剩餘: {len(futures)} {self.RESET}", end="")
-                last_print_time = current_time
+                # ==========================================
+                # 2. 新增：10秒增加少於10筆 就停止 (智慧停損)
+                # ==========================================
+                # 修改 search 內的監控邏輯
+                # 將 monitor_timer 的判定放寬
+                if current_time - self.monitor_timer > 20: # 從 10 秒放寬到 20 秒
+                    growth = current_count - self.monitor_last_count
+                    # 只有在完全沒有新資料 (growth == 0) 且請求數已經很大時才考慮停止
+                    if growth == 0 and self.api_call_count > 100:
+                        print(f"\n{self.BLUE}[1111] 資料已達極限，停止抓取。{self.RESET}")
+                        self.abort_signal = True
+                        break
+                                
+                    # 重置計時器與計數器
+                    self.monitor_timer = current_time
+                    self.monitor_last_count = current_count
+                # ==========================================
 
-            # 等待任務
-            done, not_done = wait(futures, return_when=FIRST_COMPLETED, timeout=1)
-            
-            if not done and not not_done:
-                break
+                # 3. 定時 Log (心跳包)
+                if current_time - last_print_time > 3:
+                    percent = (current_count / self.target_num) * 100
+                    print(f"\r{self.BLUE}[1111] 收集: {current_count}/{self.target_num} ({percent:.1f}%) | "
+                        f"重複: {self.duplicate_count} | 請求: {self.api_call_count} | "
+                        f"剩餘: {len(futures)} {self.RESET}", end="")
+                    last_print_time = current_time
 
-            for f in done:
-                try:
-                    new_task_defs = f.result()
-                    if new_task_defs:
-                        for t in new_task_defs:
-                            if not self.abort_signal and len(self.global_jobs) < self.target_num:
-                                new_f = executor.submit(self._process_task, t['type'], t['params'], t['label'])
-                                not_done.add(new_f)
-                except Exception:
-                    pass
-            
-            futures = not_done
-            if not futures: break
+                # 等待任務
+                done, not_done = wait(futures, return_when=FIRST_COMPLETED, timeout=1)
+                
+                if not done and not not_done:
+                    break
 
-        executor.shutdown(wait=True)
-        print() 
+                for f in done:
+                    try:
+                        new_task_defs = f.result()
+                        if new_task_defs:
+                            for t in new_task_defs:
+                                if not self.abort_signal and len(self.global_jobs) < self.target_num:
+                                    new_f = executor.submit(self._process_task, t['type'], t['params'], t['label'])
+                                    not_done.add(new_f)
+                    except Exception:
+                        pass
+                
+                futures = not_done
+                if not futures: break
+
+            executor.shutdown(wait=True)
+            print() 
 
         # 強制截斷
         final_jobs = self.global_jobs[:max_num]

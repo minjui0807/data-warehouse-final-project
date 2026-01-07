@@ -17,10 +17,10 @@
 }
 
 body {
-    font-family: 'Inter', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
     background: var(--bg);
     color: var(--text-main);
     line-height: 1.6;
+    font-size: 20px;
 }
 
 /* Header */
@@ -55,7 +55,7 @@ nav a {
     margin-left: 32px;
     text-decoration: none;
     color: var(--text-main);
-    font-size: 14px;
+    
     opacity: .8;
     transition: color 0.3s;
 }
@@ -88,7 +88,6 @@ nav a.active {
 
 .hero p {
     color: var(--text-muted);
-    font-size: 16px;
     max-width: 600px;
 }
 
@@ -112,9 +111,9 @@ nav a.active {
     background: var(--card-bg);
     border: 1px solid var(--border);
     color: var(--text-main);
-    font-size: 15px;
     font-family: 'Inter', sans-serif;
     transition: border-color 0.3s;
+    font-size: 20px;
 }
 
 .search-input:focus {
@@ -128,11 +127,12 @@ nav a.active {
     background: transparent;
     color: var(--gold);
     font-family: 'Inter', sans-serif;
-    font-weight: 500;
+    font-size: 18px;
     letter-spacing: 2px;
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
+
 }
 
 .btn-search:hover {
@@ -158,7 +158,6 @@ nav a.active {
 }
 
 .section-title {
-    font-family: 'Playfair Display', serif;
     font-size: 28px;
     margin-bottom: 30px;
     display: flex;
@@ -187,7 +186,6 @@ nav a.active {
     border: 1px solid var(--border);
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 13px;
     transition: all 0.2s;
 }
 
@@ -219,20 +217,17 @@ nav a.active {
 }
 
 .stat-label {
-    font-size: 12px;
     letter-spacing: 1px;
     color: var(--text-muted);
     text-transform: uppercase;
 }
 
 .stat-value {
-    font-family: 'Playfair Display', serif;
     font-size: 36px;
     color: var(--text-main);
 }
 
 .stat-trend {
-    font-size: 13px;
     color: var(--gold);
 }
 
@@ -264,14 +259,6 @@ nav a.active {
     font-size: 1.1rem;
     font-weight: 500;
     opacity: 0.9;
-}
-
-/* 數字樣式 */
-.platform-count {
-    font-size: 1.8rem; /* 數字大一點 */
-    font-weight: bold;
-    color: var(--text-main); /* 使用變數確保顏色一致 */
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* 中間的分隔線 */
@@ -338,7 +325,6 @@ nav a.active {
 }
 
 .platform-tag {
-    font-size: 11px;
     padding: 4px 8px;
     border: 1px solid var(--border);
     letter-spacing: 1px;
@@ -356,20 +342,18 @@ nav a.active {
 }
 
 .job-date {
-    font-size: 12px;
     color: var(--text-muted);
 }
 
 .job-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 20px;
+    font-size: 24px;
     margin-bottom: 8px;
     color: var(--text-main);
     line-height: 1.3;
 }
 
 .job-company {
-    font-size: 14px;
+    
     color: var(--text-muted);
     margin-bottom: 24px;
     font-weight: 300;
@@ -382,8 +366,8 @@ nav a.active {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
     color: var(--gold);
+    font-size: 18px;
 }
 
 /* Loader */
@@ -392,7 +376,6 @@ nav a.active {
     text-align: center;
     margin-top: 20px;
     color: var(--gold);
-    font-family: 'Playfair Display';
     letter-spacing: 2px;
 }
 
@@ -441,7 +424,7 @@ nav a.active {
     background: var(--card-bg);
     border: 1px solid var(--border);
     align-items: center;
-    font-size: 14px;
+    font-size: 20px;
 }
 
 .filter-group {
@@ -464,6 +447,7 @@ select {
     border-radius: 4px;
     font-family: inherit;
     cursor: pointer;
+    font-size: 20px;
 }
 
 select:focus {
@@ -528,7 +512,7 @@ input[type="checkbox"] {
 
 /* 2. 補上遺漏的標題樣式 */
 .card-title {
-    font-size: 14px;
+    
     color: #aaa;      /* 灰色標題 */
     margin-bottom: 5px;
 }
@@ -556,14 +540,11 @@ input[type="checkbox"] {
     font-family: 'Playfair Display', serif;
     font-size: 36px;        /* 大數字 */
     color: #fff;
-    font-weight: 700;
     line-height: 1.2;
 }
 
 /* 6. 平台名稱標籤 */
 .p-label {
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
     font-weight: 500;
     opacity: 0.8;
     margin-top: 2px;
@@ -583,7 +564,6 @@ input[type="checkbox"] {
 
 /* 8. 底部註解 */
 .card-note {
-    font-size: 12px;
     color: #555;
     margin-top: 0; 
 }
@@ -663,8 +643,7 @@ nav a.nav-link {
     background: transparent;
     border: none;
     color: white;
-    font-size: 16px;
-    font-weight: 500;
+    font-size: 20px;
     width: 100%;
     outline: none;
     font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
@@ -690,7 +669,7 @@ nav a.nav-link {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 14px;
+    font-size: 18px;
     transition: all 0.3s;
 }
 .btn-add:hover {
@@ -730,7 +709,6 @@ nav a.nav-link {
     border: 1px solid var(--gold); /* 金色邊框 */
     color: var(--gold);            /* 金色文字 */
     padding: 12px 40px;
-    font-size: 16px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -764,6 +742,7 @@ nav a.nav-link {
     border-radius: 4px;          /* 圓角 */
     outline: none;
     transition: border-color 0.2s;
+    font-size: 20px;
 }
 
 .form-select:focus, .form-input:focus {
@@ -840,7 +819,7 @@ nav a.nav-link {
 
 .history-card h4 {
     color: #C6A96B;
-    font-size: 1.4rem;
+    font-size: 2rem;
     margin-bottom: 12px;
     border-bottom: 1px solid #444;
     padding-bottom: 10px;
@@ -850,8 +829,7 @@ nav a.nav-link {
     display: flex;
     justify-content: space-between;
     color: #ccc;
-    font-size: 0.9rem;
-    margin-top: 8px;
+    margin-top: 12px;
 }
 
 /* 紅色刪除按鈕 */
@@ -866,7 +844,7 @@ nav a.nav-link {
     border-radius: 50%;
     text-align: center;
     line-height: 24px;
-    font-size: 14px;
+    
     transition: 0.2s;
     z-index: 10;
 }
@@ -959,7 +937,7 @@ body.history-mode #history-control-bar {
 }
 
 .history-title-center h2 {
-    font-size: 3rem; /* 標題稍微放大更有張力 */
+    font-size: 4rem; /* 標題稍微放大更有張力 */
     color: var(--gold);
     margin: 0;
     letter-spacing: 2px;
@@ -967,7 +945,6 @@ body.history-mode #history-control-bar {
 
 .save-time-badge {
     color: #888;
-    font-size: 1rem;
     margin-top: 10px;
     margin-bottom: 25px; /* 與下方按鈕拉開距離 */
     display: block;
@@ -991,7 +968,7 @@ body.history-mode #history-control-bar {
     display: flex;
     align-items: center;
     gap: 12px;
-    font-weight: 500;
+    font-size: 18px;
 }
 
 .btn-back-modern:hover {

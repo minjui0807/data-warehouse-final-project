@@ -66,13 +66,13 @@
                 <div class="card-title">平台資料來源</div>
                 <div class="platform-dual-container flex-grow-content">
                     <div class="platform-box">
-                        <span class="p-value" id="count_104">0</span>
-                        <span class="p-label color-104">104 人力銀行</span>
+                        <span class="stat-value" id="count_104">0</span>
+                        <span class="stat-trend color-104">104 人力銀行</span>
                     </div>
                     <div class="vertical-line"></div>
                     <div class="platform-box">
-                        <span class="p-value" id="count_1111">0</span>
-                        <span class="p-label color-1111">1111 人力銀行</span>
+                        <span class="stat-value" id="count_1111">0</span>
+                        <span class="stat-trend color-1111">1111 人力銀行</span>
                     </div>
                 </div>
             </div>
@@ -98,7 +98,7 @@
             <div class="filter-bar">
                 <div class="filter-group">
                     <label>地區:</label>
-                    <select id="filter-city" onchange="applyFilters()">
+                    <select id="filter-city" onchange="applyFilters()" style="font-size: 20px;">
                         <option value="all">所有縣市</option>
                     </select>
                 </div>
@@ -112,7 +112,7 @@
                 <div class="filter-group">
                 <label>薪資類型:</label>
                 <div style="display: flex; gap: 5px; align-items: center;">
-                    <select id="salary-type" class="form-select" style="width: auto;">
+                    <select id="salary-type" class="form-select">
                         <option value="all">所有類型</option>
                         <option value="月薪">月薪</option>
                         <option value="年薪">年薪</option>
@@ -130,8 +130,8 @@
                 </div>
             </div>
                 <div class="filter-group">
-                      <button onclick="exportFilteredCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV檔案</button>
-                      <button onclick="saveFilteredToDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫 (.db檔)</button>
+                      <button onclick="exportFilteredCSV()" style="font-size:20px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV檔案</button>
+                      <button onclick="saveFilteredToDB()" style="font-size:20px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">匯出資料庫 (.db檔)</button>
                 </div>
                 <div class="filter-group ml-auto"> 
                     <label>排序:</label>
@@ -219,13 +219,13 @@
               <i class="fas fa-search"></i> 前往市場分析
           </button>
       </div>
-    </div>
 
+    </div>
     <div id="history-detail-view" style="display: none;">
         <div class="history-header-container">
             <div class="history-title-center">
                 <h2 id="h-keyword-title">職缺名稱</h2>
-                <p id="h-save-time" class="save-time-badge">2025-12-29 20:21:52</p>
+                <p id="h-save-time" class="save-time-badge"></p>
                 
                 <div class="header-action-row">
                     <button onclick="backToHistoryList()" class="btn-back-modern">
@@ -251,13 +251,13 @@
                 <div class="card-title">平台資料來源</div>
                 <div class="platform-dual-container flex-grow-content">
                     <div class="platform-box">
-                        <span class="p-value" id="h-count-104">0</span>
-                        <span class="p-label color-104">104</span>
+                        <span class="stat-value" id="h-count-104">0</span>
+                        <span class="stat-trend color-104">104 人力銀行</span>
                     </div>
                     <div class="vertical-line"></div>
                     <div class="platform-box">
-                        <span class="p-value" id="h-count-1111">0</span>
-                        <span class="p-label color-1111">1111</span>
+                        <span class="stat-value" id="h-count-1111">0</span>
+                        <span class="stat-trend color-1111">1111 人力銀行</span>
                     </div>
                 </div>
             </div>
@@ -280,7 +280,7 @@
             <div class="filter-bar">
                 <div class="filter-group">
                     <label>地區:</label>
-                    <select id="h-filter-city" onchange="applyHistoryFilters()">
+                    <select id="h-filter-city" onchange="applyHistoryFilters()" style="font-size: 20px;">
                         <option value="all">所有縣市</option>
                     </select>
                 </div>
@@ -294,7 +294,7 @@
                 <div class="filter-group">
                     <label>薪資類型:</label>
                     <div style="display: flex; gap: 5px; align-items: center;">
-                        <select id="h-salary-type" class="form-select" style="width: auto;">
+                        <select id="h-salary-type" class="form-select">
                             <option value="all">所有類型</option>
                             <option value="月薪">月薪</option>
                             <option value="年薪">年薪</option>
@@ -313,8 +313,8 @@
                     </div>
                 </div>
                 <div class="filter-group">
-                      <button onclick="exportHistoryCSV()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
-                      <button onclick="downloadHistoryDB()" style="font-size:12px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出資料庫</button>
+                      <button onclick="exportHistoryCSV()" style="font-size:20px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出 CSV</button>
+                      <button onclick="downloadHistoryDB()" style="font-size:20px; padding: 4px 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-right: 5px;">匯出資料庫</button>
                 </div>
                 <div class="filter-group ml-auto"> 
                     <label>排序:</label>
