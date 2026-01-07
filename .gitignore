@@ -48,4 +48,5 @@ geckodriver
 
 test*
 
-selenium_job_search.py
+job_analysis_backup.py
+selenium_job_search_backup.py
