@@ -643,6 +643,11 @@ function renderHistoryJobs() {
             if(btn) btn.innerHTML = `查看更多歷史職缺 (已顯示 ${currentShown} / ${filteredHistoryJobs.length})`;
         }
     }
+
+    window.scrollTo(0, 0);
+
+    // 滾動效果
+    // window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ★ 新增：歷史紀錄點擊載入更多
