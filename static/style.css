@@ -20,7 +20,7 @@ body {
     background: var(--bg);
     color: var(--text-main);
     line-height: 1.6;
-    font-size: 20px;
+    font-size: 18px;
 }
 
 /* Header */
